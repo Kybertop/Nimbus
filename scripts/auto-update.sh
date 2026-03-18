@@ -27,21 +27,16 @@ if [ "$LOCAL" = "$REMOTE" ]; then
     exit 0
 fi
 
-echo "[UPDATE] Nájdené zmeny! Sťahujem..."
+echo "[UPDATE] Najdene zmeny! Stahujem..."
 git pull origin main
 
-# Nainštaluj nové dependencies ak sa zmenil package.json
-if git diff "$LOCAL" HEAD --name-only | grep -q "package.json"; then
-    echo "[UPDATE] package.json sa zmenil, instalam dependencies..."
-    npm install
-fi
+echo "[UPDATE] Instalam dependencies..."
+npm install
 
-if git diff "$LOCAL" HEAD --name-only | grep -q "commands.js"; then
-    echo "[UPDATE] commands.js sa zmenil, deployujem commandy..."
-    npm run deploy
-fi
+echo "[UPDATE] Deployujem commandy..."
+npm run deploy
 
-# Reštartni bota
+# Restartni bota
 if command -v pm2 &> /dev/null; then
     echo "[UPDATE] Reštartujem cez PM2..."
     pm2 restart nimbus

@@ -17,17 +17,11 @@ if "!LOCAL!"=="!REMOTE!" (
 echo [UPDATE] Najdene zmeny! Stahujem...
 git pull origin main
 
-git diff !LOCAL! HEAD --name-only | findstr "package.json" >nul
-if !errorlevel! equ 0 (
-    echo [UPDATE] package.json sa zmenil, instalam dependencies...
-    call npm install
-)
+echo [UPDATE] Instalam dependencies...
+call npm install
 
-git diff !LOCAL! HEAD --name-only | findstr "commands.js" >nul
-if !errorlevel! equ 0 (
-    echo [UPDATE] commands.js sa zmenil, deployujem commandy...
-    call npm run deploy
-)
+echo [UPDATE] Deployujem commandy...
+call npm run deploy
 
 where pm2 >nul 2>nul
 if !errorlevel! equ 0 (

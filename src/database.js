@@ -81,6 +81,15 @@ function toggleNotification(userId, notifId) {
     return notif;
 }
 
+function updateNotification(userId, notifId, data) {
+    const all = readAll();
+    const notif = all[userId]?.notifications?.find(n => n.id === notifId);
+    if (!notif) return null;
+    Object.assign(notif, data);
+    writeAll(all);
+    return notif;
+}
+
 // ─── Obľúbené mestá ────────────────────────
 
 function addFavorite(userId, city) {
@@ -161,7 +170,7 @@ function deleteServer(guildId) {
 
 module.exports = {
     getUser, setUser, deleteUser, getAllUsers,
-    addNotification, removeNotification, toggleNotification,
+    addNotification, removeNotification, toggleNotification, updateNotification,
     addFavorite, removeFavorite, getFavorites,
     getAlertState, setAlertState,
     getServer, setServer, getAllServers, deleteServer,

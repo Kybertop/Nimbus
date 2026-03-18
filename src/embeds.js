@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { getWeatherInfo, getWindDirection, getAqiInfo, getWeatherIcon, getMoonPhase } = require('./weather');
+const { getWeatherInfo, getWindDirection, getAqiInfo, getWeatherIcon, getWeatherGif, getMoonPhase } = require('./weather');
 const { getTodayNameday } = require('./namedays');
 
 const COLORS = {
@@ -29,7 +29,7 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
     const wind = getWindDirection(c.wind_direction_10m);
     const isDay = c.is_day === 1;
     const color = getColorForWeather(c.weather_code, isDay);
-    const icon = getWeatherIcon(c.weather_code, isDay);
+    const icon = getWeatherGif(c.weather_code, isDay);
 
     const embed = new EmbedBuilder()
         .setColor(color)
@@ -86,7 +86,7 @@ function buildDailyForecastEmbed(data, userSettings, dayIndex = 0) {
     const code = d.weather_code?.[dayIndex] ?? 0;
     const w = getWeatherInfo(code);
     const color = getColorForWeather(code);
-    const icon = getWeatherIcon(code, true);
+    const icon = getWeatherGif(code, true);
     const date = new Date(d.time[dayIndex] + 'T12:00:00');
     const dayNames = ['Nedeľa','Pondelok','Utorok','Streda','Štvrtok','Piatok','Sobota'];
     const dateStr = `${date.getDate()}.${date.getMonth()+1}.${date.getFullYear()}`;
@@ -414,23 +414,67 @@ function buildLoadingEmbed(text = 'Načítavam počasie...') {
 
 // ─── Help embed ────────────────────────────
 
-function buildHelpEmbed() {
-    return new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle('⛅  Weather Bot — Prehľad')
-        .setDescription('Kompletný počasový bot s per-user nastaveniami, notifikáciami a ďalšími funkciami.')
-        .addFields(
-            { name: '🌡️ /pocasie', value: 'Aktuálne počasie s buttonmi na dnes, 7/14 dní, vzduch, "kedy pekne"\n`/pocasie mesto:Praha` — jednorazovo iné mesto\n`/pocasie mesto2:Košice` — porovnanie dvoch miest', inline: false },
-            { name: '🏔️ /vzduch', value: 'Kvalita vzduchu — European AQI, PM2.5, PM10, NO₂, O₃, SO₂', inline: true },
-            { name: '🗺️ /radar', value: 'Odkaz na live radar zrážok', inline: true },
-            { name: '⭐ /oblubene', value: 'Správa obľúbených miest s rýchlym prepínaním', inline: true },
-            { name: '⚙️ /nastavenia', value: 'Interaktívny dashboard — mesto, jednotky, notifikácie, obľúbené. Všetko na jednom mieste.', inline: false },
-            { name: '🔔 /notifikacie', value: 'Správa notifikácií — zapni/vypni/odstrán', inline: true },
-            { name: '🗳️ /poll', value: 'Hlasovanie "Pôjdeme von?" podľa predpovede', inline: true },
-            { name: '📢 /kanal', value: 'Nastav kanál pre automatické ranné počasie (admin)', inline: true },
-            { name: '─── Typy notifikácií ───', value: '`denne` — ranný prehľad celého dňa\n`vystrahy` — len ak hrozia silné javy\n`burky` — real-time alert každých 15 min\n`vychod` / `zapad` — slnko notifikácie', inline: false },
-        )
-        .setFooter({ text: '⛅ Nimbus Weather Bot' }).setTimestamp();
+function buildHelpEmbed(section = 'main') {
+    const e = new EmbedBuilder().setColor(0x5865F2);
+
+    switch (section) {
+        case 'main':
+            return e.setTitle('Nimbus Weather Bot')
+                .setDescription('Kompletny pocasovy bot pre Discord.\nKlikni na button nizsie pre detail kazdej sekcie.')
+                .addFields(
+                    { name: 'Pocasie', value: '/pocasie, /vzduch, /radar, /mesiac', inline: true },
+                    { name: 'Smart', value: '/outfit, /doprava', inline: true },
+                    { name: 'Nastavenia', value: '/nastavenia, /oblubene', inline: true },
+                    { name: 'Notifikacie', value: '/notifikacie — 8 typov alertov', inline: true },
+                    { name: 'Server', value: '/poll, /kanal', inline: true },
+                )
+                .setFooter({ text: 'Nimbus' }).setTimestamp();
+
+        case 'pocasie':
+            return e.setTitle('Pocasie — commandy')
+                .addFields(
+                    { name: '/pocasie', value: 'Aktualne pocasie s buttonmi na dnes, 7/14 dni, vzduch, "kedy pekne", outfit, doprava', inline: false },
+                    { name: '/pocasie mesto:Praha', value: 'Jednorazovo ine mesto (neprepise tvoje nastavenia)', inline: false },
+                    { name: '/pocasie mesto2:Kosice', value: 'Porovnanie dvoch miest vedla seba', inline: false },
+                    { name: '/vzduch', value: 'Kvalita vzduchu — European AQI, PM2.5, PM10, NO2, O3, SO2', inline: false },
+                    { name: '/radar', value: 'Odkaz na live radar zrazok (RainViewer)', inline: false },
+                    { name: '/mesiac', value: 'Lunarny kalendar — fazy mesiaca na 14 dni', inline: false },
+                )
+                .setFooter({ text: 'Nimbus' }).setTimestamp();
+
+        case 'smart':
+            return e.setTitle('Smart funkcie')
+                .addFields(
+                    { name: '/outfit', value: 'Co si oblect dnes — vrstvy, obuv, doplnky podla teploty, vetra a dazda', inline: false },
+                    { name: '/doprava', value: 'Dopravne varovania — namraza, hmla, vietor, silny dazd, burka, snezenie, ranna namraza zajtra', inline: false },
+                    { name: 'Kedy pekne? (button)', value: 'Najde najblizsie pekne dni v 16-dnovej predpovedi', inline: false },
+                )
+                .setFooter({ text: 'Nimbus' }).setTimestamp();
+
+        case 'notif':
+            return e.setTitle('Notifikacie — 8 typov')
+                .setDescription('Nastavuj cez /nastavenia alebo /notifikacie')
+                .addFields(
+                    { name: 'Ranny prehlad', value: 'V konkretny cas ALEBO okamzite raz denne', inline: true },
+                    { name: 'Vystrahy pocasia', value: 'V cas ALEBO hned pri severity 3+', inline: true },
+                    { name: 'Zmena pocasia', value: 'Multi-select 10 typov zmien (slnecno->oblacno, zacne prsat...)', inline: false },
+                    { name: 'Prsi / Burka / Extrem', value: 'Okamzite keD sa nieco zisti', inline: true },
+                    { name: 'Vychod / Zapad slnka', value: 'S offsetom 0-60 min pred udalostou', inline: true },
+                )
+                .setFooter({ text: 'Nimbus' }).setTimestamp();
+
+        case 'server':
+            return e.setTitle('Server funkcie')
+                .addFields(
+                    { name: '/poll', value: 'Vyber den z 7-dnovej predpovede → verejny poll s reakciami', inline: false },
+                    { name: '/kanal', value: 'Admin nastavi kanal pre automaticky ranny post s pocasim (denne o zadanej hodine)', inline: false },
+                    { name: '/oblubene', value: 'Uloz az 10 oblubenych miest a rychlo prepinaj', inline: false },
+                )
+                .setFooter({ text: 'Nimbus' }).setTimestamp();
+
+        default:
+            return buildHelpEmbed('main');
+    }
 }
 
 // ─── Poll embed ────────────────────────────
@@ -440,7 +484,7 @@ function buildPollEmbed(dailyData, userSettings, dayOffset = 0) {
     const idx = Math.min(dayOffset, (d.time?.length || 1) - 1);
     const code = d.weather_code?.[idx] ?? 0;
     const w = getWeatherInfo(code);
-    const icon = getWeatherIcon(code, true);
+    const icon = getWeatherGif(code, true);
     const tMax = d.temperature_2m_max?.[idx] ?? '?';
     const tMin = d.temperature_2m_min?.[idx] ?? '?';
     const precip = d.precipitation_probability_max?.[idx] ?? 0;
@@ -533,7 +577,7 @@ function buildServerWeatherEmbed(dailyData, hourlyData, city) {
     const d = dailyData.daily;
     const w = getWeatherInfo(d.weather_code?.[0] ?? 0);
     const code = d.weather_code?.[0] ?? 0;
-    const icon = getWeatherIcon(code, true);
+    const icon = getWeatherGif(code, true);
     const sunriseRaw = d.sunrise?.[0];
     const sunsetRaw = d.sunset?.[0];
     const sunriseUnix = sunriseRaw ? Math.floor(new Date(sunriseRaw).getTime() / 1000) : 0;

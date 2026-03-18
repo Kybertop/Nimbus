@@ -49,6 +49,7 @@ async function handleInteraction(interaction) {
         if (id.startsWith('nw_offset_')) return handleNwOffsetSelect(interaction);
         if (id.startsWith('nw_mode_time_')) return handleNwModeTime(interaction);
         if (id.startsWith('nw_mode_instant_')) return handleNwModeInstant(interaction);
+        if (id.startsWith('help_')) return handleHelp(interaction, true);
     }
 
     if (interaction.isStringSelectMenu()) {
@@ -882,8 +883,26 @@ async function handleNotifDelete(interaction) {
 //  /help
 // ═══════════════════════════════════════════
 
-async function handleHelp(interaction) {
-    return interaction.reply({ embeds: [embeds.buildHelpEmbed()], ephemeral: true });
+function buildHelpButtons(active = 'main') {
+    const s = (id) => id === active ? ButtonStyle.Success : ButtonStyle.Secondary;
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('help_main').setLabel('Prehled').setStyle(s('main')),
+        new ButtonBuilder().setCustomId('help_pocasie').setLabel('Pocasie').setStyle(s('pocasie')),
+        new ButtonBuilder().setCustomId('help_smart').setLabel('Smart').setStyle(s('smart')),
+        new ButtonBuilder().setCustomId('help_notif').setLabel('Notifikacie').setStyle(s('notif')),
+        new ButtonBuilder().setCustomId('help_server').setLabel('Server').setStyle(s('server')),
+    );
+}
+
+async function handleHelp(interaction, isUpdate = false) {
+    const section = isUpdate ? interaction.customId.replace('help_', '') : 'main';
+    const embed = embeds.buildHelpEmbed(section);
+    const row = buildHelpButtons(section);
+
+    if (isUpdate) {
+        return interaction.update({ embeds: [embed], components: [row] });
+    }
+    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
 // ═══════════════════════════════════════════

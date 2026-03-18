@@ -39,10 +39,10 @@ fi
 # Reštartni bota
 if command -v pm2 &> /dev/null; then
     echo "[UPDATE] Reštartujem cez PM2..."
-    pm2 restart weather-bot
-elif command -v systemctl &> /dev/null && systemctl is-active --quiet weather-bot; then
+    pm2 restart nimbus
+elif command -v systemctl &> /dev/null && systemctl is-active --quiet nimbus; then
     echo "[UPDATE] Reštartujem cez systemd..."
-    sudo systemctl restart weather-bot
+    sudo systemctl restart nimbus
 else
     echo "[UPDATE] PM2/systemd nenájdený. Reštartni bota manuálne!"
     echo "[UPDATE] Alebo použi: npm start"

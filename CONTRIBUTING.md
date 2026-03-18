@@ -4,8 +4,8 @@
 
 ### 1. Klonuj repo
 ```bash
-git clone https://github.com/TVOJ-USERNAME/weather-bot.git
-cd weather-bot
+git clone https://github.com/TVOJ-USERNAME/nimbus.git
+cd nimbus
 npm install
 cp .env.example .env
 # vyplň .env
@@ -20,7 +20,7 @@ npm run deploy
 ```bash
 npm start
 # alebo cez PM2:
-pm2 start src/index.js --name weather-bot
+pm2 start src/index.js --name nimbus
 ```
 
 ---
@@ -99,7 +99,7 @@ git reset --hard abc1234     # POZOR: stratíš neuložené zmeny!
 ```bash
 npm install                  # reinstall dependencies
 npm run deploy               # re-register commands (ak sa zmenili)
-pm2 restart weather-bot      # restart
+pm2 restart nimbus      # restart
 ```
 
 ---
@@ -111,7 +111,7 @@ pm2 restart weather-bot      # restart
 2. Create Basic Task → "Weather Bot Update"
 3. Trigger: Daily, every 1 minute (alebo ako chceš)
 4. Action: Start a Program → `scripts\auto-update.bat`
-5. Start in: `C:\Users\Kayle\Desktop\weather-bot`
+5. Start in: `C:\Users\Kayle\Desktop\nimbus`
 
 ### Alebo nechaj bežať watcher:
 ```bash
@@ -124,7 +124,7 @@ Toto beží v slučke a každých 60 sekúnd checkne GitHub.
 # Otvor crontab
 crontab -e
 # Pridaj (každú minútu):
-* * * * * /cesta/k/weather-bot/scripts/auto-update.sh >> /var/log/weather-bot-update.log 2>&1
+* * * * * /cesta/k/nimbus/scripts/auto-update.sh >> /var/log/nimbus-update.log 2>&1
 ```
 
 ---
@@ -132,7 +132,7 @@ crontab -e
 ## Štruktúra projektu
 
 ```
-weather-bot/
+nimbus/
 ├── .env.example          # šablóna pre environment
 ├── .gitignore            # ignorované súbory
 ├── package.json          # dependencies

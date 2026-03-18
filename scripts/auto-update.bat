@@ -1,27 +1,15 @@
 @echo off
-REM ============================================
-REM Weather Bot — Auto-Update Script (Windows)
-REM ============================================
-REM Automaticky pullne zmeny z GitHubu a restartne bota.
-REM
-REM Pouzitie:
-REM   Spusti manualne: scripts\auto-update.bat
-REM   Alebo cez Task Scheduler na opakovanie
-REM ============================================
+setlocal enabledelayedexpansion
 
 cd /d "%~dp0\.."
 
-echo [UPDATE] %date% %time% — Kontrolujem zmeny...
+echo [UPDATE] %date% %time% - Kontrolujem zmeny...
 
-REM Uloz aktualny hash
-for /f %%i in ('git rev-parse HEAD') do set LOCAL=%%i
-
-REM Fetch zmeny
+for /f %%i in ('git rev-parse HEAD 2^>nul') do set LOCAL=%%i
 git fetch origin main 2>nul
+for /f %%i in ('git rev-parse origin/main 2^>nul') do set REMOTE=%%i
 
-for /f %%i in ('git rev-parse origin/main') do set REMOTE=%%i
-
-if "%LOCAL%"=="%REMOTE%" (
+if "!LOCAL!"=="!REMOTE!" (
     echo [UPDATE] Ziadne zmeny.
     exit /b 0
 )
@@ -29,20 +17,19 @@ if "%LOCAL%"=="%REMOTE%" (
 echo [UPDATE] Najdene zmeny! Stahujem...
 git pull origin main
 
-REM Check ci sa zmenil package.json
-git diff %LOCAL% HEAD --name-only | findstr "package.json" >nul
-if %errorlevel%==0 (
+git diff !LOCAL! HEAD --name-only | findstr "package.json" >nul
+if !errorlevel! equ 0 (
     echo [UPDATE] package.json sa zmenil, instalam dependencies...
     call npm install
 )
 
-REM Restartni bota
 where pm2 >nul 2>nul
-if %errorlevel%==0 (
+if !errorlevel! equ 0 (
     echo [UPDATE] Restartujem cez PM2...
-    pm2 restart weather-bot
+    pm2 restart nimbus nimbus-web
 ) else (
-    echo [UPDATE] Restartni bota manualne! Alebo pouzi: npm start
+    echo [UPDATE] PM2 nenajdeny. Restartni bota manualne.
 )
 
 echo [UPDATE] Hotovo!
+endlocal

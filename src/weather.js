@@ -196,9 +196,39 @@ const WMO_ICONS = {
     99: { day: 'https://openweathermap.org/img/wn/11d@2x.png', night: 'https://openweathermap.org/img/wn/11n@2x.png' },
 };
 
+// Animated GIF weather icons (free meteocons set)
+const WEATHER_GIFS = {
+    0: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/clear-day.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/clear-night.svg' },
+    1: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-day.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-night.svg' },
+    2: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-day.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-night.svg' },
+    3: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/overcast.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/overcast.svg' },
+    45: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/fog.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/fog.svg' },
+    48: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/fog.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/fog.svg' },
+    51: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/drizzle.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/drizzle.svg' },
+    53: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/drizzle.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/drizzle.svg' },
+    55: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/drizzle.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/drizzle.svg' },
+    61: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/rain.svg' },
+    63: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/rain.svg' },
+    65: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/rain.svg' },
+    71: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/snow.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/snow.svg' },
+    73: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/snow.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/snow.svg' },
+    75: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/snow.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/snow.svg' },
+    80: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-day-rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-night-rain.svg' },
+    81: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-day-rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-night-rain.svg' },
+    82: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-day-rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/partly-cloudy-night-rain.svg' },
+    95: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/thunderstorms-rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/thunderstorms-rain.svg' },
+    96: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/thunderstorms-rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/thunderstorms-rain.svg' },
+    99: { day: 'https://basmilius.github.io/weather-icons/production/fill/all/thunderstorms-rain.svg', night: 'https://basmilius.github.io/weather-icons/production/fill/all/thunderstorms-rain.svg' },
+};
+
 function getWeatherIcon(code, isDay = true) {
     const icons = WMO_ICONS[code] || WMO_ICONS[0];
     return isDay ? icons.day : icons.night;
+}
+
+function getWeatherGif(code, isDay = true) {
+    const gifs = WEATHER_GIFS[code] || WEATHER_GIFS[0];
+    return isDay ? gifs.day : gifs.night;
 }
 
 // ─── "Kedy bude pekne?" ───────────────────
@@ -457,7 +487,7 @@ function getTrafficWarnings(currentData, hourlyData) {
 }
 
 module.exports = {
-    WMO_CODES, getWeatherInfo, getWeatherIcon, geocode,
+    WMO_CODES, getWeatherInfo, getWeatherIcon, getWeatherGif, geocode,
     getCurrentWeather, getHourlyForecast, getDailyForecast,
     getAirQuality, getAqiInfo,
     getRadarUrl, getRadarImageUrl, getWindDirection, findNiceDays,

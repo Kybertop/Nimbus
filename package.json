@@ -1,5 +1,5 @@
 {
-  "name": "weather-bot",
+  "name": "nimbus",
   "version": "1.0.0",
   "description": "Discord weather bot s per-user nastaveniami a notifikáciami (Open-Meteo)",
   "main": "src/index.js",

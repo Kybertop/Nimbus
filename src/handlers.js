@@ -1156,10 +1156,21 @@ async function handleNotifikacie(interaction, isRefresh = false) {
 
     const rows = [];
     if (notifs.length > 0) {
+        const typeEmojis = {
+            daily: '📋', severe: '⚠️', rain_now: '🌧️', storm: '⛈️',
+            extreme_temp: '🌡️', snow: '🌨️', fog: '🌫️', wind: '💨',
+            frost: '🧊', weather_change: '🔄', sunrise: '🌅',
+            sunset: '🌇', moon: '🌙',
+        };
         const selectOptions = notifs.map(n => {
             const info = TL[n.type] || { name: n.type };
             let timing = (n.event_based || n.hour == null) ? '⚡' : `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
-            return { label: `#${n.id} ${info.name} — ${timing}`, description: `${n.enabled?'Aktivna':'Vypnuta'}`, value: n.id };
+            return {
+                label: `#${n.id} ${info.name} — ${timing}`,
+                description: `${n.enabled ? 'Aktivna' : 'Vypnuta'}`,
+                value: n.id,
+                emoji: typeEmojis[n.type] || '🔔',
+            };
         });
         rows.push(new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder().setCustomId(`notif_manage_${interaction.user.id}`).setPlaceholder('Spravovat notifikaciu...').addOptions(selectOptions)

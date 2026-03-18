@@ -92,7 +92,7 @@ const DAILY_VARS_SHORT = [
     'apparent_temperature_max', 'apparent_temperature_min',
     'sunrise', 'sunset', 'precipitation_sum',
     'precipitation_probability_max', 'wind_speed_10m_max',
-    'wind_gusts_10m_max',
+    'wind_gusts_10m_max', 'uv_index_max',
 ];
 
 const DAILY_VARS_FULL = [
@@ -264,7 +264,19 @@ function getWindDirection(degrees) {
     return { sk: dirs[index] || '?' };
 }
 
-// ─── Lunárny kalendár ──────────────────────
+// ─── UV Index ──────────────────────────────
+
+function getUvInfo(uv) {
+    if (uv == null) return null;
+    const rounded = Math.round(uv * 10) / 10;
+    if (rounded <= 2) return { level: rounded, text: 'Nizky', emoji: '🟢', advice: 'Bez obav', bar: '░░░░░░░░░░' };
+    if (rounded <= 5) return { level: rounded, text: 'Stredny', emoji: '🟡', advice: 'Okuliare, krem SPF 30+', bar: '▓▓▓░░░░░░░' };
+    if (rounded <= 7) return { level: rounded, text: 'Vysoky', emoji: '🟠', advice: 'Krem SPF 50, okuliare, klobuk', bar: '▓▓▓▓▓▓░░░░' };
+    if (rounded <= 10) return { level: rounded, text: 'Velmi vysoky', emoji: '🔴', advice: 'Vyhni sa slnku 11-15h, SPF 50+', bar: '▓▓▓▓▓▓▓▓░░' };
+    return { level: rounded, text: 'Extremny', emoji: '⚫', advice: 'Nechod von! Nebezpecne UV', bar: '▓▓▓▓▓▓▓▓▓▓' };
+}
+
+// ─── Lunarny kalendar ──────────────────────
 
 function getMoonPhase(date = new Date()) {
     // Algoritmus na výpočet fázy mesiaca (Conwayho metóda)
@@ -402,11 +414,22 @@ function getOutfitAdvice(currentData, dailyData) {
         accessories.push(pick(['🧤 Rukavice', '🧤 Hrubé rukavice', '🧤 Palčiaky']));
     }
 
-    // Slnko
-    if (feelsLike > 22 && info.severity === 0) {
-        accessories.push(pick(['🕶️ Slnečné okuliare', '🕶️ Okuliariky na slnko', '🕶️ Okuliare s UV filtrom']));
-        if (feelsLike > 26) accessories.push(pick(['🧴 Opaľovací krém', '🧴 SPF 30+ na tvár', '🧴 Nezabudni na krém!']));
-        if (feelsLike > 28) accessories.push(pick(['🧢 Šiltovka / klobúk', '🧢 Niečo na hlavu', '👒 Klobúk proti slnku']));
+    // Slnko + UV
+    const uvMax = d.uv_index_max?.[0];
+    const uvInfo = uvMax != null ? getUvInfo(uvMax) : null;
+
+    if (uvInfo && uvMax >= 3) {
+        accessories.push('🕶️ Slnečné okuliare');
+        if (uvMax >= 6) {
+            accessories.push(`🧴 Opaľovací krém SPF 50+ (UV ${uvInfo.level} — ${uvInfo.text})`);
+            accessories.push(pick(['🧢 Šiltovka / klobúk', '👒 Klobúk proti slnku']));
+        } else if (uvMax >= 3) {
+            accessories.push(`🧴 Opaľovací krém SPF 30+ (UV ${uvInfo.level})`);
+        }
+    } else if (feelsLike > 22 && info.severity === 0) {
+        accessories.push(pick(['🕶️ Slnečné okuliare', '🕶️ Okuliariky na slnko']));
+        if (feelsLike > 26) accessories.push('🧴 Opaľovací krém');
+        if (feelsLike > 28) accessories.push(pick(['🧢 Šiltovka / klobúk', '👒 Klobúk proti slnku']));
     }
 
     if (!footwear) {
@@ -486,10 +509,54 @@ function getTrafficWarnings(currentData, hourlyData) {
     return warnings;
 }
 
+// ─── Historicke porovnanie ─────────────────
+
+async function getHistoricalComparison(lat, lon, timezone = 'auto') {
+    // Porovnaj dnesnu teplotu s priemerom za poslednych 5 rokov na tento den
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    const years = [];
+    for (let y = now.getFullYear() - 5; y < now.getFullYear(); y++) {
+        years.push(y);
+    }
+
+    try {
+        const results = [];
+        for (const y of years) {
+            const dateStr = `${y}-${month}-${day}`;
+            const data = await fetchJson(buildUrl('https://archive-api.open-meteo.com/v1/archive', {
+                latitude: String(lat), longitude: String(lon),
+                start_date: dateStr, end_date: dateStr,
+                daily: ['temperature_2m_max', 'temperature_2m_min'],
+                timezone: tz(timezone),
+            }));
+            if (data?.daily?.temperature_2m_max?.[0] != null) {
+                results.push({
+                    year: y,
+                    max: data.daily.temperature_2m_max[0],
+                    min: data.daily.temperature_2m_min[0],
+                });
+            }
+        }
+
+        if (results.length === 0) return null;
+
+        const avgMax = Math.round((results.reduce((s, r) => s + r.max, 0) / results.length) * 10) / 10;
+        const avgMin = Math.round((results.reduce((s, r) => s + r.min, 0) / results.length) * 10) / 10;
+
+        return { avgMax, avgMin, years: results, count: results.length };
+    } catch {
+        return null;
+    }
+}
+
 module.exports = {
     WMO_CODES, getWeatherInfo, getWeatherIcon, getWeatherGif, geocode,
     getCurrentWeather, getHourlyForecast, getDailyForecast,
-    getAirQuality, getAqiInfo,
+    getAirQuality, getAqiInfo, getUvInfo,
     getRadarUrl, getRadarImageUrl, getWindDirection, findNiceDays,
     getMoonPhase, getLunarCalendar, getOutfitAdvice, getTrafficWarnings,
+    getHistoricalComparison,
 };

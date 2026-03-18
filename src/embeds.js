@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { getWeatherInfo, getWindDirection, getAqiInfo, getWeatherIcon, getWeatherGif, getMoonPhase } = require('./weather');
+const { getWeatherInfo, getWindDirection, getAqiInfo, getWeatherIcon, getWeatherGif, getMoonPhase, getUvInfo } = require('./weather');
 const { getTodayNameday } = require('./namedays');
 
 const COLORS = {
@@ -8,7 +8,25 @@ const COLORS = {
     success: 0x57F287, error: 0xED4245, warning: 0xFEE75C, info: 0x5865F2,
 };
 
-function getColorForWeather(code, isDay = true) {
+function getColorForTemp(temp) {
+    if (temp == null) return COLORS.default;
+    if (temp <= -10) return 0x1A237E;  // tmavomodra
+    if (temp <= -5)  return 0x283593;
+    if (temp <= 0)   return 0x1565C0;  // modra
+    if (temp <= 5)   return 0x1E88E5;
+    if (temp <= 10)  return 0x42A5F5;  // svetlomodra
+    if (temp <= 15)  return 0x26A69A;  // teal
+    if (temp <= 20)  return 0x66BB6A;  // zelena
+    if (temp <= 25)  return 0xFFA726;  // oranzova
+    if (temp <= 30)  return 0xEF5350;  // cervena
+    if (temp <= 35)  return 0xD32F2F;  // tmavocervena
+    return 0xB71C1C;                   // extrem
+}
+
+function getColorForWeather(code, isDay = true, temp = null) {
+    // Ak mame teplotu, pouzij teplotny gradient
+    if (temp != null) return getColorForTemp(temp);
+    // Fallback na weather code
     if (!isDay) return COLORS.night;
     const s = getWeatherInfo(code).severity;
     if (s >= 3) return COLORS.storm;
@@ -28,7 +46,7 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
     const w = getWeatherInfo(c.weather_code);
     const wind = getWindDirection(c.wind_direction_10m);
     const isDay = c.is_day === 1;
-    const color = getColorForWeather(c.weather_code, isDay);
+    const color = getColorForWeather(c.weather_code, isDay, c.temperature_2m);
     const icon = getWeatherGif(c.weather_code, isDay);
 
     const embed = new EmbedBuilder()
@@ -45,6 +63,14 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
 
     if (c.precipitation > 0) {
         embed.addFields({ name: '🌧️ Zrážky', value: `${c.precipitation} mm`, inline: true });
+    }
+
+    // UV index z daily dat
+    if (dailyData?.daily?.uv_index_max?.[0] != null) {
+        const uv = getUvInfo(dailyData.daily.uv_index_max[0]);
+        if (uv) {
+            embed.addFields({ name: `${uv.emoji} UV ${uv.level}`, value: `**${uv.text}**\n${uv.bar}\n${uv.advice}`, inline: true });
+        }
     }
 
     // Sunrise/sunset s Discord dynamickými timestampmi
@@ -103,7 +129,10 @@ function buildDailyForecastEmbed(data, userSettings, dayIndex = 0) {
         { name: '🌧️ Zrážky', value: `${d.precipitation_sum?.[dayIndex]??0} mm | ${d.precipitation_probability_max?.[dayIndex]??'?'}%`, inline: true },
         { name: '🌅 Slnko', value: sunText, inline: true },
     ];
-    if (uv != null) fields.push({ name: '☀️ UV', value: `${uv}`, inline: true });
+    if (uv != null) {
+        const uvInfo = getUvInfo(uv);
+        if (uvInfo) fields.push({ name: `${uvInfo.emoji} UV ${uvInfo.level}`, value: `${uvInfo.text} — ${uvInfo.advice}`, inline: true });
+    }
 
     return new EmbedBuilder().setColor(color)
         .setTitle(`${w.emoji}  ${dayNames[date.getDay()]}, ${dateStr} — ${userSettings.city}`)
@@ -199,8 +228,14 @@ function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
     ];
     if (nameday) fields.push({ name: '🎂 Meniny', value: nameday, inline: true });
 
+    // Hodinovy graf teploty
+    const hourlyGraph = buildHourlyGraph(hourlyData, today);
+    if (hourlyGraph) {
+        fields.push({ name: '📊 Teplota 24h', value: hourlyGraph, inline: false });
+    }
+
     return new EmbedBuilder()
-        .setColor(getColorForWeather(d.weather_code?.[0] ?? 0))
+        .setColor(getColorForWeather(d.weather_code?.[0] ?? 0, true, d.temperature_2m_max?.[0]))
         .setTitle(`${w.emoji}  Ranný prehľad — ${userSettings.city}`)
         .setDescription(summary)
         .addFields(...fields)
@@ -401,6 +436,31 @@ function buildSparkline(values) {
     const max = Math.max(...values);
     const range = max - min || 1;
     return values.map(v => blocks[Math.round(((v - min) / range) * 7)]).join('');
+}
+
+function buildHourlyGraph(hourlyData, today) {
+    if (!hourlyData?.hourly?.time) return null;
+    const h = hourlyData.hourly;
+    const temps = [];
+    const hours = [];
+
+    for (let i = 0; i < h.time.length; i++) {
+        if (!h.time[i]?.startsWith(today)) continue;
+        const hr = new Date(h.time[i]).getHours();
+        // Kazdu 2. hodinu pre citatelnost
+        if (hr % 2 !== 0) continue;
+        temps.push(h.temperature_2m?.[i] ?? 0);
+        hours.push(hr);
+    }
+
+    if (temps.length === 0) return null;
+
+    const spark = buildSparkline(temps);
+    const labels = hours.map(h => String(h).padStart(2, ' ')).join('');
+    const min = Math.min(...temps);
+    const max = Math.max(...temps);
+
+    return `\`${spark}\`\n\`${labels}\`h\n↓ ${Math.round(min)}° · ↑ ${Math.round(max)}°`;
 }
 
 // ─── Loading embed ─────────────────────────
@@ -692,11 +752,60 @@ function buildTrafficEmbed(warnings, userSettings) {
         .setFooter({ text: `🚗 ${warnings.length} varovanie/a` }).setTimestamp();
 }
 
+// ─── Historicke porovnanie ────────────────
+
+function buildHistoryEmbed(dailyData, historical, userSettings) {
+    const d = dailyData.daily;
+    const todayMax = d.temperature_2m_max?.[0];
+    const todayMin = d.temperature_2m_min?.[0];
+    const du = dailyData.daily_units || {};
+    const tu = du.temperature_2m_max || '°C';
+
+    if (!historical) {
+        return new EmbedBuilder()
+            .setColor(COLORS.info)
+            .setTitle(`📊  Historicke porovnanie — ${userSettings.city}`)
+            .setDescription('Historicke data nie su dostupne pre tuto lokalitu.')
+            .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
+    }
+
+    const diffMax = todayMax != null ? Math.round((todayMax - historical.avgMax) * 10) / 10 : null;
+    const diffMin = todayMin != null ? Math.round((todayMin - historical.avgMin) * 10) / 10 : null;
+
+    let verdict = '';
+    if (diffMax != null) {
+        if (diffMax > 3) verdict = '🥵 Vyrazne teplejsie ako zvycajne!';
+        else if (diffMax > 1) verdict = '🌡️ Teplejsie ako priemer';
+        else if (diffMax < -3) verdict = '🥶 Vyrazne chladnejsie ako zvycajne!';
+        else if (diffMax < -1) verdict = '❄️ Chladnejsie ako priemer';
+        else verdict = '✅ Blizko priemeru';
+    }
+
+    const diffMaxStr = diffMax != null ? (diffMax >= 0 ? `+${diffMax}` : `${diffMax}`) : '?';
+    const diffMinStr = diffMin != null ? (diffMin >= 0 ? `+${diffMin}` : `${diffMin}`) : '?';
+
+    const yearLines = historical.years.map(y =>
+        `${y.year}: ${y.max}° / ${y.min}°`
+    ).join('\n');
+
+    return new EmbedBuilder()
+        .setColor(getColorForTemp(todayMax))
+        .setTitle(`📊  Dnes vs priemer — ${userSettings.city}`)
+        .setDescription(`**${verdict}**`)
+        .addFields(
+            { name: '🌡️ Dnes', value: `↑ **${todayMax}${tu}** ↓ ${todayMin}${tu}`, inline: true },
+            { name: '📈 Priemer (${historical.count} rokov)', value: `↑ **${historical.avgMax}${tu}** ↓ ${historical.avgMin}${tu}`, inline: true },
+            { name: '📊 Rozdiel', value: `Max: **${diffMaxStr}°**\nMin: **${diffMinStr}°**`, inline: true },
+            { name: '📅 Po rokoch', value: `\`\`\`\n${yearLines}\n\`\`\``, inline: false },
+        )
+        .setFooter({ text: '⛅ Nimbus • Open-Meteo Historical API' }).setTimestamp();
+}
+
 module.exports = {
     COLORS, buildCurrentWeatherEmbed, buildDailyForecastEmbed, buildMultiDayEmbed,
     buildDailySummaryEmbed, buildAirQualityEmbed, buildCompareEmbed,
     buildStormAlertEmbed, buildSunEmbed, buildSettingsEmbed,
     buildNiceDaysEmbed, buildErrorEmbed, buildSuccessEmbed,
     buildLoadingEmbed, buildHelpEmbed, buildPollEmbed, buildMultiPollEmbed, buildServerWeatherEmbed,
-    buildLunarEmbed, buildOutfitEmbed, buildTrafficEmbed,
+    buildLunarEmbed, buildOutfitEmbed, buildTrafficEmbed, buildHistoryEmbed,
 };

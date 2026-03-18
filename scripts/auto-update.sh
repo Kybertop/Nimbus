@@ -32,8 +32,13 @@ git pull origin main
 
 # Nainštaluj nové dependencies ak sa zmenil package.json
 if git diff "$LOCAL" HEAD --name-only | grep -q "package.json"; then
-    echo "[UPDATE] package.json sa zmenil, inštalujem dependencies..."
+    echo "[UPDATE] package.json sa zmenil, instalam dependencies..."
     npm install
+fi
+
+if git diff "$LOCAL" HEAD --name-only | grep -q "commands.js"; then
+    echo "[UPDATE] commands.js sa zmenil, deployujem commandy..."
+    npm run deploy
 fi
 
 # Reštartni bota

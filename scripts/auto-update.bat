@@ -23,6 +23,12 @@ if !errorlevel! equ 0 (
     call npm install
 )
 
+git diff !LOCAL! HEAD --name-only | findstr "commands.js" >nul
+if !errorlevel! equ 0 (
+    echo [UPDATE] commands.js sa zmenil, deployujem commandy...
+    call npm run deploy
+)
+
 where pm2 >nul 2>nul
 if !errorlevel! equ 0 (
     echo [UPDATE] Restartujem cez PM2...

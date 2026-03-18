@@ -127,6 +127,7 @@ function buildWeatherRows(lid, activeTyp = '') {
         new ButtonBuilder().setCustomId(`w:nice:${lid}`).setLabel('Pekne?').setEmoji('☀️').setStyle(s('nice')),
         new ButtonBuilder().setCustomId(`w:outfit:${lid}`).setLabel('Obliecť').setEmoji('👔').setStyle(s('outfit')),
         new ButtonBuilder().setCustomId(`w:traffic:${lid}`).setLabel('Doprava').setEmoji('🚗').setStyle(s('traffic')),
+        new ButtonBuilder().setCustomId(`w:history:${lid}`).setLabel('vs Priemer').setEmoji('📊').setStyle(s('history')),
     );
     return [row1, row2];
 }
@@ -254,6 +255,14 @@ async function handleWeatherButton(interaction) {
                     weather.getHourlyForecast(lat, lon, tz, 2, units),
                 ]);
                 embed = embeds.buildTrafficEmbed(weather.getTrafficWarnings(cd, hd), userSettings);
+                break;
+            }
+            case 'history': {
+                const [dd, hist] = await Promise.all([
+                    weather.getDailyForecast(lat, lon, tz, 1, units),
+                    weather.getHistoricalComparison(lat, lon, tz),
+                ]);
+                embed = embeds.buildHistoryEmbed(dd, hist, userSettings);
                 break;
             }
         }

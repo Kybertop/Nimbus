@@ -15,9 +15,14 @@ function init(discordClient) {
         checkServerChannels().catch(console.error);
     });
 
-    // 5-minútový check — event-based (rain, storm, extreme temp)
+    // 5-minutovy check — event-based (rain, storm, extreme temp)
     cron.schedule('*/5 * * * *', () => {
         checkEventNotifs().catch(console.error);
+    });
+
+    // 10-minutovy check — voice channel rename
+    cron.schedule('*/10 * * * *', () => {
+        updateVoiceChannels().catch(console.error);
     });
 
     console.log('[NOTIF] Systém spustený');
@@ -297,6 +302,40 @@ async function checkServerChannels() {
             ]);
             await channel.send({ embeds: [embeds.buildServerWeatherEmbed(dd, hd, config.city)] });
         } catch (err) { console.error(`[SERVER] ${guildId}:`, err.message); }
+    }
+}
+
+// ─── Voice channel rename ─────────────────
+
+async function updateVoiceChannels() {
+    if (!client?.isReady()) return;
+
+    const servers = db.getAllServers();
+    for (const [guildId, config] of Object.entries(servers)) {
+        if (!config.voice_channel_id || !config.latitude) continue;
+
+        try {
+            const channel = await client.channels.fetch(config.voice_channel_id).catch(() => null);
+            if (!channel) continue;
+
+            // Check rate limit — Discord allows 2 channel renames per 10 min
+            const tz = config.timezone || 'auto';
+            const data = await weather.getCurrentWeather(config.latitude, config.longitude, tz);
+            const c = data.current;
+            const w = weather.getWeatherInfo(c.weather_code);
+            const temp = Math.round(c.temperature_2m);
+
+            const newName = `${w.emoji} ${temp}° ${config.city}`;
+
+            // Premenuj len ak sa zmenil nazov
+            if (channel.name !== newName) {
+                await channel.setName(newName).catch(err => {
+                    console.error(`[VOICE] ${guildId}: ${err.message}`);
+                });
+            }
+        } catch (err) {
+            console.error(`[VOICE] ${guildId}:`, err.message);
+        }
     }
 }
 

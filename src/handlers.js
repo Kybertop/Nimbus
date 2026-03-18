@@ -34,6 +34,8 @@ async function handleInteraction(interaction) {
         if (id === 'setup_city') return showCityModal(interaction);
         if (id === 'setup_units') return showUnitsSelect(interaction);
         if (id === 'setup_notif') return handleNotifAdd(interaction);
+        if (id === 'setup_default_view') return showDefaultViewSelect(interaction);
+        if (id === 'setup_voice') return showVoiceSetup(interaction);
         if (id === 'setup_reset') return handleReset(interaction);
         if (id === 'setup_done') return handleSetupDone(interaction);
         if (id === 'setup_fav_add') return handleFavAdd(interaction);
@@ -51,6 +53,8 @@ async function handleInteraction(interaction) {
     if (interaction.isStringSelectMenu()) {
         if (interaction.customId.startsWith('city_pick_')) return handleCityPick(interaction);
         if (interaction.customId.startsWith('units_pick_')) return handleUnitsPick(interaction);
+        if (interaction.customId.startsWith('default_view_pick_')) return handleDefaultViewPick(interaction);
+        if (interaction.customId.startsWith('voice_pick_')) return handleVoicePick(interaction);
         if (interaction.customId.startsWith('notif_manage_')) return handleNotifManageSelect(interaction);
         if (interaction.customId.startsWith('fav_pick_')) return handleFavPick(interaction);
         if (interaction.customId.startsWith('nw_type_')) return handleNwTypePick(interaction);
@@ -119,11 +123,12 @@ function buildWeatherRows(lid, activeTyp = '') {
         new ButtonBuilder().setCustomId(`w:7d:${lid}`).setLabel('7 dní').setEmoji('📆').setStyle(s('7d')),
         new ButtonBuilder().setCustomId(`w:14d:${lid}`).setLabel('14 dní').setEmoji('📅').setStyle(s('14d')),
     );
+    const trafficLabel = Math.random() < 0.1 ? 'Dolava' : 'Doprava';
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`w:aqi:${lid}`).setLabel('Vzduch').setEmoji('🏔️').setStyle(s('aqi')),
         new ButtonBuilder().setCustomId(`w:nice:${lid}`).setLabel('Pekne?').setEmoji('☀️').setStyle(s('nice')),
         new ButtonBuilder().setCustomId(`w:outfit:${lid}`).setLabel('Oblečenie').setEmoji('👔').setStyle(s('outfit')),
-        new ButtonBuilder().setCustomId(`w:traffic:${lid}`).setLabel('Doprava').setEmoji('🚗').setStyle(s('traffic')),
+        new ButtonBuilder().setCustomId(`w:traffic:${lid}`).setLabel(trafficLabel).setEmoji('🚗').setStyle(s('traffic')),
         new ButtonBuilder().setCustomId(`w:history:${lid}`).setLabel('vs Priemer').setEmoji('📊').setStyle(s('history')),
     );
     return [row1, row2];
@@ -175,17 +180,45 @@ async function handlePocasie(interaction) {
     if (loc.error) return interaction.editReply({ embeds: [embeds.buildErrorEmbed(loc.error)] });
 
     try {
-        const [data, dailyData] = await Promise.all([
-            weather.getCurrentWeather(loc.lat, loc.lon, loc.tz, loc.units),
-            weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
-        ]);
-        const embed = embeds.buildCurrentWeatherEmbed(data, loc.settings, dailyData);
+        const userDb = db.getUser(interaction.user.id);
+        const defaultView = userDb?.default_view || 'current';
         const lid = locId(loc.lat, loc.lon, loc.tz, loc.city);
-        const rows = buildWeatherRows(lid, 'current');
+
+        let embed;
+        switch (defaultView) {
+            case 'today': {
+                const [hd, dd] = await Promise.all([
+                    weather.getHourlyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
+                    weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
+                ]);
+                embed = embeds.buildDailySummaryEmbed(hd, dd, loc.settings);
+                break;
+            }
+            case '7d': {
+                const dd = await weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 7, loc.units);
+                embed = embeds.buildMultiDayEmbed(dd, loc.settings);
+                break;
+            }
+            case '14d': {
+                const dd = await weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 14, loc.units);
+                embed = embeds.buildMultiDayEmbed(dd, loc.settings);
+                break;
+            }
+            default: {
+                const [data, dailyData] = await Promise.all([
+                    weather.getCurrentWeather(loc.lat, loc.lon, loc.tz, loc.units),
+                    weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
+                ]);
+                embed = embeds.buildCurrentWeatherEmbed(data, loc.settings, dailyData);
+                break;
+            }
+        }
+
+        const rows = buildWeatherRows(lid, defaultView);
         return interaction.editReply({ embeds: [embed], components: rows });
     } catch (err) {
         console.error('[POCASIE]', err);
-        return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Nepodarilo sa načítať počasie.')] });
+        return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Nepodarilo sa nacitat pocasie.')] });
     }
 }
 
@@ -428,13 +461,15 @@ async function handleNastavenia(interaction) {
 
 function buildSettingsButtons(settings) {
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('setup_city').setLabel(settings?.city ? `Zmeniť mesto (${settings.city})` : 'Nastaviť mesto').setEmoji('📍').setStyle(settings?.city ? ButtonStyle.Secondary : ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('setup_city').setLabel(settings?.city ? `Zmenit mesto (${settings.city})` : 'Nastavit mesto').setEmoji('📍').setStyle(settings?.city ? ButtonStyle.Secondary : ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('setup_units').setLabel('Jednotky').setEmoji('🌡️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('setup_fav_add').setLabel('Pridať obľúbené').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('setup_fav_add').setLabel('Pridat oblubene').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('setup_default_view').setLabel('Default zobrazenie').setEmoji('📋').setStyle(ButtonStyle.Secondary),
     );
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('setup_notif').setLabel('Pridať notifikáciu').setEmoji('🔔').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('setup_reset').setLabel('Vymazať všetko').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('setup_notif').setLabel('Pridat notifikaciu').setEmoji('🔔').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('setup_voice').setLabel('Voice kanal').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('setup_reset').setLabel('Vymazat vsetko').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('setup_done').setLabel('Hotovo').setStyle(ButtonStyle.Secondary),
     );
     return [row1, row2];
@@ -496,6 +531,98 @@ async function handleUnitsPick(interaction) {
     const [t, w] = interaction.values[0].split('_');
     db.setUser(interaction.user.id, { units: t, wind_unit: w });
     await interaction.update({ content: null, embeds: [embeds.buildSuccessEmbed(`Jednotky: **${t === 'celsius' ? '°C' : '°F'}** | **${w}**`)], components: [] });
+}
+
+// ─── Default view ─────────────────────────
+
+async function showDefaultViewSelect(interaction) {
+    const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder().setCustomId(`default_view_pick_${interaction.user.id}`).setPlaceholder('Default zobrazenie...').addOptions([
+            { label: 'Aktualne pocasie', value: 'current', emoji: '🌡️', description: 'Teplota, vietor, vlhkost' },
+            { label: 'Dnes podrobne', value: 'today', emoji: '📋', description: 'Hodinovy prehlad + graf' },
+            { label: '7 dni', value: '7d', emoji: '📆', description: 'Tyzdenna predpoved' },
+            { label: '14 dni', value: '14d', emoji: '📅', description: 'Dvojtyzdnova predpoved' },
+        ])
+    );
+    await interaction.reply({ content: 'Co sa zobrazi ked das /pocasie:', components: [row], ephemeral: true });
+}
+
+async function handleDefaultViewPick(interaction) {
+    const view = interaction.values[0];
+    db.setUser(interaction.user.id, { default_view: view });
+    const labels = { current: 'Aktualne', today: 'Dnes', '7d': '7 dni', '14d': '14 dni' };
+    await interaction.update({ content: null, embeds: [embeds.buildSuccessEmbed(`Default zobrazenie: **${labels[view]}**`)], components: [] });
+}
+
+// ─── Voice channel setup ──────────────────
+
+async function showVoiceSetup(interaction) {
+    if (!interaction.guildId) {
+        return interaction.reply({ embeds: [embeds.buildErrorEmbed('Voice kanal funguje len na serveri.')], ephemeral: true });
+    }
+    if (!interaction.memberPermissions?.has('ManageChannels')) {
+        return interaction.reply({ embeds: [embeds.buildErrorEmbed('Potrebujes opravnenie **Manage Channels**.')], ephemeral: true });
+    }
+
+    // Najdi voice kanaly na serveri
+    const guild = interaction.guild;
+    const voiceChannels = guild.channels.cache
+        .filter(c => c.type === 2) // GuildVoice
+        .map(c => ({ label: c.name, value: c.id, emoji: '🔊' }))
+        .slice(0, 25);
+
+    if (voiceChannels.length === 0) {
+        return interaction.reply({ embeds: [embeds.buildErrorEmbed('Ziadne voice kanaly na tomto serveri.')], ephemeral: true });
+    }
+
+    voiceChannels.unshift({ label: 'Vypnut (ziadny)', value: 'off', emoji: '❌' });
+
+    const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`voice_pick_${interaction.guildId}`)
+            .setPlaceholder('Vyber voice kanal...')
+            .addOptions(voiceChannels)
+    );
+
+    await interaction.reply({
+        embeds: [new EmbedBuilder().setColor(0x5865F2)
+            .setTitle('🔊 Voice kanal s pocasim')
+            .setDescription('Vyber voice kanal ktory sa bude automaticky premenovat podla aktualneho pocasia.\n\nPriklad: `☀️ 18°C Trnava`')
+        ],
+        components: [row],
+        ephemeral: true,
+    });
+}
+
+async function handleVoicePick(interaction) {
+    const channelId = interaction.values[0];
+    const guildId = interaction.customId.replace('voice_pick_', '');
+
+    if (channelId === 'off') {
+        db.setServer(guildId, { voice_channel_id: null });
+        return interaction.update({ embeds: [embeds.buildSuccessEmbed('Voice kanal vypnuty.')], components: [] });
+    }
+
+    // Ak server nema nastavene mesto, pouzi userovo
+    const serverConfig = db.getServer(guildId);
+    if (!serverConfig?.latitude) {
+        const userSettings = db.getUser(interaction.user.id);
+        if (userSettings?.latitude) {
+            db.setServer(guildId, {
+                voice_channel_id: channelId,
+                city: userSettings.city,
+                latitude: userSettings.latitude,
+                longitude: userSettings.longitude,
+                timezone: userSettings.timezone || 'auto',
+            });
+        } else {
+            return interaction.update({ embeds: [embeds.buildErrorEmbed('Najprv nastav mesto cez `/kanal` alebo `/nastavenia`.')], components: [] });
+        }
+    } else {
+        db.setServer(guildId, { voice_channel_id: channelId });
+    }
+
+    await interaction.update({ embeds: [embeds.buildSuccessEmbed(`Voice kanal nastaveny: <#${channelId}>\nBude sa aktualizovat kazdych 10 minut.`)], components: [] });
 }
 
 // ─── Notif wizard (interaktívny) ────────────
@@ -1026,28 +1153,35 @@ async function handlePollDayPick(interaction) {
     const s = db.getUser(interaction.user.id);
     if (!s?.latitude) return interaction.update({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], components: [] });
 
-    await interaction.update({
-        embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslaný!')],
-        components: [],
-    });
+    // V DMs posli priamo, na serveri posli ako verejnu spravu
+    const isDM = !interaction.guildId;
 
     try {
         const maxDay = Math.max(...selectedDays) + 1;
         const dd = await weather.getDailyForecast(s.latitude, s.longitude, s.timezone || 'auto', maxDay);
 
         if (selectedDays.length === 1) {
-            // Jeden deň — klasický 👍👎🤷 poll
             const embed = embeds.buildPollEmbed(dd, s, selectedDays[0]);
-            const msg = await interaction.channel.send({ embeds: [embed] });
-            await msg.react('👍').catch(() => {});
-            await msg.react('👎').catch(() => {});
-            await msg.react('🤷').catch(() => {});
+            if (isDM) {
+                // V DMs — posli priamo ako odpoved
+                await interaction.update({ embeds: [embed], components: [] });
+            } else {
+                await interaction.update({ embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslaný!')], components: [] });
+                const msg = await interaction.channel.send({ embeds: [embed] });
+                await msg.react('👍').catch(() => {});
+                await msg.react('👎').catch(() => {});
+                await msg.react('🤷').catch(() => {});
+            }
         } else {
-            // Viac dní — čísla ako reakcie
             const embed = embeds.buildMultiPollEmbed(dd, s, selectedDays);
-            const msg = await interaction.channel.send({ embeds: [embed] });
-            for (let i = 0; i < selectedDays.length && i < 7; i++) {
-                await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
+            if (isDM) {
+                await interaction.update({ embeds: [embed], components: [] });
+            } else {
+                await interaction.update({ embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslaný!')], components: [] });
+                const msg = await interaction.channel.send({ embeds: [embed] });
+                for (let i = 0; i < selectedDays.length && i < 7; i++) {
+                    await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
+                }
             }
         }
     } catch (err) {

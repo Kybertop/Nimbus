@@ -51,7 +51,12 @@ function addNotification(userId, notification) {
     const all = readAll();
     if (!all[userId]) return null;
     if (!all[userId].notifications) all[userId].notifications = [];
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    // Najdi najvyssie cislo a pridaj +1
+    const maxId = all[userId].notifications.reduce((max, n) => {
+        const num = parseInt(n.id);
+        return !isNaN(num) && num > max ? num : max;
+    }, 0);
+    const id = String(maxId + 1);
     const notif = { id, ...notification, enabled: true };
     all[userId].notifications.push(notif);
     writeAll(all);

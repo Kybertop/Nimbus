@@ -361,23 +361,26 @@ function buildSettingsEmbed(s) {
     const notifList = notifs.length > 0
         ? notifs.map(n => {
             const status = n.enabled ? '🟢' : '🔴';
-            const time = `${String(n.hour).padStart(2,'0')}:${String(n.minute).padStart(2,'0')}`;
-            const types = { daily: 'Denný prehľad', severe: 'Výstrahy', storm: 'Búrkový alert', sunrise: 'Východ slnka', sunset: 'Západ slnka' };
+            const time = (n.event_based || n.hour == null) ? '⚡' : `${String(n.hour).padStart(2,'0')}:${String(n.minute).padStart(2,'0')}`;
+            const types = { daily: 'Ranny prehlad', severe: 'Vystrahy', storm: 'Burka', sunrise: 'Vychod', sunset: 'Zapad', rain_now: 'Prsi', extreme_temp: 'Extrem', weather_change: 'Zmena' };
             return `${status} ${time} — ${types[n.type] || n.type}`;
         }).join('\n')
-        : '*Žiadne*';
-    const favList = favs.length > 0 ? favs.map((f, i) => `⭐ ${f.name}`).join(', ') : '*Žiadne*';
+        : '*Ziadne*';
+    const favList = favs.length > 0 ? favs.map((f, i) => `⭐ ${f.name}`).join(', ') : '*Ziadne*';
+    const viewLabels = { current: 'Aktualne', today: 'Dnes', '7d': '7 dni', '14d': '14 dni' };
+    const defaultView = viewLabels[s?.default_view] || 'Aktualne';
 
     return new EmbedBuilder().setColor(COLORS.info).setTitle('⚙️  Tvoje nastavenia')
-        .setDescription('Klikni na tlačidlá nižšie a nastav si všetko.')
+        .setDescription('Klikni na tlacidla nizsie a nastav si vsetko.')
         .addFields(
-            { name: '📍 Mesto', value: s?.city || '*Nenastavené*', inline: true },
-            { name: '🌐 Súradnice', value: s?.latitude ? `${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)}` : '*—*', inline: true },
-            { name: '🕐 Zóna', value: s?.timezone || '*auto*', inline: true },
-            { name: '🔔 Notifikácie', value: notifList, inline: false },
-            { name: '⭐ Obľúbené', value: favList, inline: false },
+            { name: '📍 Mesto', value: s?.city || '*Nenastavene*', inline: true },
+            { name: '🌐 Suradnice', value: s?.latitude ? `${s.latitude.toFixed(4)}, ${s.longitude.toFixed(4)}` : '*—*', inline: true },
+            { name: '🕐 Zona', value: s?.timezone || '*auto*', inline: true },
+            { name: '📋 Default zobrazenie', value: defaultView, inline: true },
+            { name: '🔔 Notifikacie', value: notifList, inline: false },
+            { name: '⭐ Oblubene', value: favList, inline: false },
         )
-        .setFooter({ text: '⚙️ Nastavenia sa ukladajú automaticky' }).setTimestamp();
+        .setFooter({ text: '⚙️ Nastavenia sa ukladaju automaticky' }).setTimestamp();
 }
 
 function buildErrorEmbed(msg) {

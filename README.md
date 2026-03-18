@@ -2,139 +2,138 @@
 
 # Nimbus
 
-**Slovak Discord weather bot — real-time forecasts, smart alerts, and lunar tracking.**
+**Slovensky Discord pocasovy bot — predpovede, smart alerty a lunarny kalendar.**
 
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.js.org)
 [![Node.js](https://img.shields.io/badge/node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Open-Meteo](https://img.shields.io/badge/API-Open--Meteo-FF6F00?style=flat-square)](https://open-meteo.com)
-[![License](https://img.shields.io/badge/license-ISC-blue?style=flat-square)](LICENSE)
-[![GitHub last commit](https://img.shields.io/github/last-commit/Kybertop/Nimbus?style=flat-square)](https://github.com/Kybertop/Nimbus/commits/main)
-[![GitHub repo size](https://img.shields.io/github/repo-size/Kybertop/Nimbus?style=flat-square)](https://github.com/Kybertop/Nimbus)
+[![License](https://img.shields.io/badge/licencia-ISC-blue?style=flat-square)](LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/Kybertop/Nimbus?style=flat-square&label=posledny%20commit)](https://github.com/Kybertop/Nimbus/commits/main)
+[![GitHub repo size](https://img.shields.io/github/repo-size/Kybertop/Nimbus?style=flat-square&label=velkost)](https://github.com/Kybertop/Nimbus)
 
-[Invite Bot](https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot+applications.commands&permissions=2147485696) · [Report Bug](https://github.com/Kybertop/Nimbus/issues) · [Request Feature](https://github.com/Kybertop/Nimbus/issues)
+[Pridat bota](https://discord.com/oauth2/authorize?client_id=1483374625541849139&permissions=8&integration_type=0&scope=bot) · [Nahlasit bug](https://github.com/Kybertop/Nimbus/issues) · [Navrh funkcie](https://github.com/Kybertop/Nimbus/issues)
 
 </div>
 
 ---
 
-## About
+## O projekte
 
-Nimbus is a feature-rich Discord weather bot built for the Slovak community. It provides real-time weather data, smart clothing recommendations, traffic warnings, lunar calendar, and a powerful notification system — all in Slovak language.
+Nimbus je kompletny Discord pocasovy bot postaveny pre slovensku komunitu. Poskytuje data o pocasi v realnom case, odporucania oblecenia, dopravne varovania, lunarny kalendar a prepracovany notifikacny system — vsetko v slovencine.
 
-**Key highlights:**
-- Free API — no keys needed (Open-Meteo)
-- User-installable — works in DMs, group chats, and foreign servers
-- Per-user settings — each user has their own city, units, favorites, and notifications
-- Live bot status — displays current temperature in its Discord presence
-- Auto-deploy — GitHub push to auto-pull on server within 60 seconds
-
----
-
-## Commands
-
-### Everywhere (servers, DMs, group chats)
-
-| Command | Description |
-|---------|-------------|
-| `/pocasie` | Current weather with interactive buttons for daily, 7-day, 14-day views |
-| `/pocasie mesto:Praha` | One-time lookup for a different city |
-| `/pocasie mesto2:Kosice` | Side-by-side comparison of two cities |
-| `/vzduch` | Air quality — European AQI, PM2.5, PM10, NO2, O3, SO2 |
-| `/radar` | Live precipitation radar link (RainViewer) |
-| `/mesiac` | 14-day lunar calendar with phase calculations |
-| `/outfit` | Clothing recommendation based on temp, rain, wind, UV |
-| `/doprava` | Traffic warnings — frost, fog, wind, heavy rain, storms |
-| `/oblubene` | Manage up to 10 favorite cities with quick switching |
-| `/nastavenia` | Interactive settings dashboard |
-| `/notifikacie` | View and manage all notifications |
-| `/poll` | Weather-based poll — pick a day, vote with reactions |
-| `/help` | Interactive help with section buttons |
-
-### Server only
-
-| Command | Description |
-|---------|-------------|
-| `/kanal` | Set up automatic daily weather posts (admin) |
+**Preco Nimbus:**
+- Zadarmo API — ziadne kluce (Open-Meteo)
+- User-installable — funguje v DMs, skupinovych chatoch aj na cudzich serveroch
+- Per-user nastavenia — kazdy uzivatel ma vlastne mesto, jednotky, oblubene a notifikacie
+- Zivy status bota — zobrazuje aktualnu teplotu v Discord prezencii
 
 ---
 
-## Interactive buttons
+## Commandy
 
-Every `/pocasie` response includes two rows of interactive buttons:
+### Vsade (servery, DMs, skupinove chaty)
 
-**Row 1:** Current · Today · 7 days · 14 days
+| Command | Popis |
+|---------|-------|
+| `/pocasie` | Aktualne pocasie s interaktivnymi buttonmi na dnes, 7 a 14 dni |
+| `/pocasie mesto:Praha` | Jednorazovy vyber ineho mesta |
+| `/pocasie mesto2:Kosice` | Porovnanie dvoch miest vedla seba |
+| `/vzduch` | Kvalita vzduchu — European AQI, PM2.5, PM10, NO2, O3, SO2 |
+| `/radar` | Zivy radar zrazok (RainViewer) |
+| `/mesiac` | 14-dnovy lunarny kalendar s fazami mesiaca |
+| `/outfit` | Odporucanie oblecenia podla teploty, dazda, vetra a UV |
+| `/doprava` | Dopravne varovania — namraza, hmla, vietor, dazd, burky |
+| `/oblubene` | Sprava az 10 oblubenych miest s rychlym prepinanim |
+| `/nastavenia` | Interaktivny dashboard nastaveni |
+| `/notifikacie` | Zobrazenie a sprava notifikacii |
+| `/poll` | Hlasovanie podla predpovede — vyber den, hlasuj reakciami |
+| `/help` | Interaktivny help s buttonmi na sekcie |
 
-**Row 2:** Air · Nice days? · Outfit · Traffic · vs Average
+### Len na serveri
 
-The active view is highlighted green. Buttons carry the city context, so one-time city lookups persist through button clicks.
-
----
-
-## Notification system
-
-Nimbus has a wizard-driven notification system with 5 main categories:
-
-**Daily overview** — full day summary at a set time or instantly
-
-**Warnings** — pick specific types via multi-select:
-- Rain · Storm · Extreme temp · Snow · Fog · Wind · Frost
-
-**Weather changes** — alert when conditions shift:
-- Sunny to cloudy · Rain starts/stops · Snow · Storm · Fog · Wind increase · Temp drop/rise
-
-**Sun** — sunrise/sunset with 0-60 min offset
-
-**Moon** — alert on selected lunar phases:
-- New moon · First quarter · Full moon · Last quarter
-
-All notifications support **DM or server channel** delivery. Existing notifications can be edited — add/remove tracked types without recreating.
+| Command | Popis |
+|---------|-------|
+| `/kanal` | Nastavenie automatickeho ranneho pocasia do kanala (admin) |
 
 ---
 
-## Features
+## Interaktivne buttony
 
-### Weather data
-- Current conditions with feels-like temperature
-- Hourly ASCII temperature graph (24h)
-- 7 and 14 day forecasts with sparkline charts
-- UV index with SPF recommendations (5 levels)
-- Historical comparison — today vs 5-year average
-- Discord dynamic timestamps for sunrise/sunset (auto-updating countdown)
+Kazda odpoved na `/pocasie` obsahuje dva rady buttonov:
 
-### Smart features
-- Outfit advisor — layers, footwear, accessories based on UV, temp, wind, rain
-- Traffic warnings — frost, fog, wind, rain, storms, morning frost prediction
+**Rad 1:** Aktualne · Dnes · 7 dni · 14 dni
 
-### Server features
-- Automatic daily weather posts to a channel
-- Voice channel auto-rename with live temperature
-- Weather polls with day picker and reaction voting
-- Multi-day polls with numbered reactions
+**Rad 2:** Vzduch · Pekne? · Oblecenie · Doprava · vs Priemer
 
-### Personalization
-- Default view preference (current / today / 7d / 14d)
-- Fahrenheit / Celsius + km/h / m/s / mph units
-- Up to 10 favorite cities
-- Slovak nameday display
-
-### Technical
-- Temperature-based embed colors (blue to teal to green to orange to red)
-- Animated SVG weather icons (Basmilius Weather Icons)
-- File logging with daily rotation
-- Crash recovery with PM2 auto-restart
-- Live bot status showing current temperature
+Aktivny pohlad svieti zeleno. Buttony si pamataju mesto, takze jednorazove vyhladavanie pretrvava cez kliknutia.
 
 ---
 
-## Setup
+## Notifikacny system
 
-### Prerequisites
+Nimbus ma wizard-driven notifikacny system s 5 hlavnymi kategoriami:
+
+**Ranny prehlad** — celkovy prehlad dna v nastaveny cas alebo okamzite
+
+**Vystrahy** — vyber konkretne typy cez multi-select:
+- Dazd · Burka · Extremna teplota · Snezenie · Hmla · Vietor · Namraza
+
+**Zmena pocasia** — alert ked sa zmenia podmienky:
+- Zatiahnutie · Vyjasnenie · Zaciatok/koniec dazda · Sneh · Burka · Hmla · Zosilnenie vetra · Pokles/narast teploty
+
+**Slnko** — vychod/zapad s offsetom 0-60 minut pred udalostou
+
+**Mesiac** — alert pri vybranej faze:
+- Nov · Prva stvrt · Spln · Posledna stvrt
+
+Vsetky notifikacie podporuju dorucenie do **DM alebo serveroveho kanala**. Existujuce notifikacie sa daju upravovat — pridavat/odoberatelne sledovane typy bez nutnosti vymazania.
+
+---
+
+## Funkcie
+
+### Pocasie a data
+- Aktualne podmienky s pocitovou teplotou
+- Hodinovy ASCII graf teploty (24h priebeh)
+- 7 a 14 dnova predpoved so sparkline grafmi
+- UV index s SPF odporuceniami (5 urovni)
+- Historicke porovnanie — dnes vs 5-rocny priemer
+- Discord dynamicke timestampy pre vychod/zapad slnka (auto-aktualizujuci sa odpocet)
+
+### Smart funkcie
+- Poradca oblecenia — vrstvy, obuv, doplnky podla UV, teploty, vetra, dazda
+- Dopravne varovania — namraza, hmla, vietor, dazd, burky, predikcia rannej namrazy
+
+### Serverove funkcie
+- Automaticky denny post pocasia do kanala
+- Voice kanal s automatickym premenovanim podla teploty
+- Hlasovanie o pocasi s vyberom dna a reakciami
+- Multi-dnove hlasovania s ciselnymi reakciami
+
+### Personalizacia
+- Predvoleny pohlad (aktualne / dnes / 7 dni / 14 dni)
+- Fahrenheit / Celsius + km/h / m/s / mph jednotky
+- Az 10 oblubenych miest
+- Slovenske meniny v embedoch
+
+### Technicke
+- Farba embedu podla teploty (modra cez zelenu po cervenu)
+- Animovane SVG ikony pocasia (Basmilius Weather Icons)
+- Logovanie do suborov s dennou rotaciou
+- Obnova po padoch s PM2 auto-restartom
+- Zivy status bota zobrazujuci aktualnu teplotu
+
+---
+
+## Instalacia
+
+### Poziadavky
 
 - [Node.js](https://nodejs.org) 18+
 - [Git](https://git-scm.com)
 - Discord bot token ([Developer Portal](https://discord.com/developers/applications))
 
-### Installation
+### Postup
 
 ```bash
 git clone https://github.com/Kybertop/Nimbus.git
@@ -143,22 +142,23 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
+Uprav `.env` s tvojimi udajmi:
 
 ```env
-DISCORD_TOKEN=your-bot-token
-CLIENT_ID=your-client-id
-STATUS_CITY=Trnava
+DISCORD_TOKEN=discord-token-sem
+CLIENT_ID=client-id-sem
+DISCORD_CLIENT_SECRET=client-secret-sem
+REDIRECT_URI=redirect-uri-sem
 ```
 
-### Register commands and start
+### Registracia commandov a spustenie
 
 ```bash
 npm run deploy
 npm start
 ```
 
-### Production (PM2)
+### Produkcia (PM2)
 
 ```bash
 npm install -g pm2
@@ -166,29 +166,9 @@ pm2 start src/index.js --name nimbus
 pm2 save
 ```
 
-### User-installable app
-
-Enable in [Developer Portal](https://discord.com/developers/applications) under Installation, then enable User Install.
-
 ---
 
-## Auto-deploy
-
-Nimbus includes auto-deploy scripts for seamless updates:
-
-```bash
-# On your server — runs every 60s, pulls changes, restarts bot
-scripts/watch-updates.bat     # Windows
-scripts/auto-update.sh        # Linux (via cron)
-```
-
-Every update automatically runs `npm install`, `npm run deploy`, and `pm2 restart`.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full collaboration workflow.
-
----
-
-## Project structure
+## Struktura projektu
 
 ```
 Nimbus/
@@ -197,60 +177,55 @@ Nimbus/
 ├── package.json
 ├── CONTRIBUTING.md
 ├── README.md
-├── scripts/
-│   ├── auto-update.bat
-│   ├── auto-update.sh
-│   ├── push.bat
-│   └── watch-updates.bat
-├── data/                    # Runtime (gitignored)
+├── data/                    # Runtime data (gitignored)
 │   ├── users.json
 │   └── servers.json
-├── logs/                    # Daily logs (gitignored)
+├── logs/                    # Denne logy (gitignored)
 └── src/
-    ├── index.js             # Entry — client, status, logging, crash recovery
-    ├── commands.js          # 12 slash commands with integration types
-    ├── deploy-commands.js   # Command registration via REST
-    ├── handlers.js          # All interaction handling and wizard flows
+    ├── index.js             # Vstup — klient, status, logovanie, crash recovery
+    ├── commands.js          # 12 slash commandov s integration types
+    ├── deploy-commands.js   # Registracia commandov cez REST
+    ├── handlers.js          # Vsetky interakcie a wizard flows
     ├── database.js          # JSON file storage
-    ├── weather.js           # Open-Meteo API, WMO codes, UV, outfit, traffic
-    ├── embeds.js            # All Discord embed builders
-    ├── namedays.js          # Slovak nameday calendar (365 days)
-    └── notifications.js     # Cron: scheduled, event, sun, moon, voice
+    ├── weather.js           # Open-Meteo API, WMO kody, UV, outfit, doprava
+    ├── embeds.js            # Vsetky Discord embed buildery
+    ├── namedays.js          # Slovensky kalendar menin (365 dni)
+    └── notifications.js     # Cron: planovane, event, slnko, mesiac, voice
 ```
 
 ---
 
-## Tech stack
+## Technologie
 
-| Component | Technology |
-|-----------|-----------|
+| Komponent | Technologia |
+|-----------|------------|
 | Runtime | Node.js 18+ |
-| Discord library | discord.js v14 |
-| Weather API | Open-Meteo (free, no key) |
-| Historical API | Open-Meteo Archive |
-| Air quality | Open-Meteo Air Quality |
+| Discord kniznica | discord.js v14 |
+| Pocasie API | Open-Meteo (zadarmo, bez kluca) |
+| Historicke data | Open-Meteo Archive |
+| Kvalita vzduchu | Open-Meteo Air Quality |
 | Radar | RainViewer |
-| Weather icons | Basmilius Weather Icons (animated SVG) |
-| Scheduling | node-cron |
+| Ikony pocasia | Basmilius Weather Icons (animovane SVG) |
+| Planovanie | node-cron |
 | Process manager | PM2 |
-| Storage | JSON files (per-user, per-server) |
+| Ulozisko | JSON subory (per-user, per-server) |
 
 ---
 
-## Contributing
+## Prispievanie
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions, branch workflow, and commit conventions.
+Pozri [CONTRIBUTING.md](CONTRIBUTING.md) pre navod na setup, branche a commit konvencie.
 
 ---
 
-## License
+## Licencia
 
-Distributed under the ISC License.
+Distribuovane pod ISC licenciou.
 
 ---
 
 <div align="center">
 
-**Built by [Kybertop](https://github.com/Kybertop)**
+**Vytvorili [Kybertop](https://github.com/Kybertop) & [Skorocel](https://github.com/HenrykGurzsky)**
 
 </div>

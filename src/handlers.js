@@ -61,6 +61,9 @@ async function handleInteraction(interaction) {
         if (interaction.customId.startsWith('nw_dest_')) return handleNwDestPick(interaction);
         if (interaction.customId.startsWith('nw_offset_sel_')) return handleNwOffsetPick(interaction);
         if (interaction.customId.startsWith('nw_changes_')) return handleNwChangesPick(interaction);
+        if (interaction.customId.startsWith('nw_severe_')) return handleNwSeverePick(interaction);
+        if (interaction.customId.startsWith('nw_sun_type_')) return handleNwSunTypePick(interaction);
+        if (interaction.customId.startsWith('nw_moon_')) return handleNwMoonPick(interaction);
         if (interaction.customId.startsWith('poll_day_')) return handlePollDayPick(interaction);
     }
 
@@ -630,14 +633,28 @@ async function handleVoicePick(interaction) {
 const notifWizardState = new Map();
 
 const NOTIF_TYPE_OPTIONS = [
-    { label: '📋 Ranný prehľad', description: 'Celý prehľad dňa', value: 'daily', canSchedule: true },
-    { label: '⚠️ Výstrahy počasia', description: 'Silné javy (búrky, silný dážď...)', value: 'severe', canSchedule: true },
-    { label: '🔄 Zmena počasia', description: 'Upozorní keď sa zmení počasie (vyber aké)', value: 'weather_change', needsChanges: true },
-    { label: '🌧️ Práve prší', description: 'Hneď keď začne pršať', value: 'rain_now' },
-    { label: '⛈️ Búrka sa blíži', description: 'Real-time alert pri búrke', value: 'storm' },
-    { label: '🌡️ Extrémna teplota', description: 'Mráz (<0°C) alebo horúčava (>33°C)', value: 'extreme_temp' },
-    { label: '🌅 Východ slnka', description: 'X minút pred východom', value: 'sunrise', needsOffset: true },
-    { label: '🌇 Západ slnka', description: 'X minút pred západom', value: 'sunset', needsOffset: true },
+    { label: '📋 Ranny prehlad', description: 'Celkovy prehlad dna', value: 'daily', canSchedule: true },
+    { label: '⚠️ Vystrahy', description: 'Vyber ktore vystrahy chces dostavat', value: 'severe', needsSubtype: true },
+    { label: '🔄 Zmena pocasia', description: 'Vyber ake zmeny chces sledovat', value: 'weather_change', needsChanges: true },
+    { label: '☀️ Slnko', description: 'Vychod alebo zapad s offsetom', value: 'sun', needsSunType: true },
+    { label: '🌙 Mesiac', description: 'Upozorni pri vybranej faze mesiaca', value: 'moon', needsMoonPhase: true },
+];
+
+const SEVERE_SUB_OPTIONS = [
+    { label: '🌧️ Dazd (lubovolny)', description: 'Slaby aj silny dazd, prehanky', value: 'rain_now', emoji: '🌧️' },
+    { label: '⛈️ Burka / krupobitie', description: 'Severity 3+ javy', value: 'storm', emoji: '⛈️' },
+    { label: '🌡️ Extremna teplota', description: 'Pod 0°C alebo nad 33°C', value: 'extreme_temp', emoji: '🌡️' },
+    { label: '🌨️ Snezenie', description: 'Ked zacne snezit', value: 'snow', emoji: '🌨️' },
+    { label: '🌫️ Hmla', description: 'Znizena viditelnost', value: 'fog', emoji: '🌫️' },
+    { label: '💨 Silny vietor', description: 'Narazy nad 50 km/h', value: 'wind', emoji: '💨' },
+    { label: '🧊 Namraza', description: 'Riziko namrazy na cestach', value: 'frost', emoji: '🧊' },
+];
+
+const MOON_PHASE_OPTIONS = [
+    { label: '🌑 Nov', description: 'Uplne novy mesiac', value: 'new_moon', emoji: '🌑' },
+    { label: '🌓 Prva stvrt', description: 'Polmesiac rastie', value: 'first_quarter', emoji: '🌓' },
+    { label: '🌕 Spln', description: 'Uplny mesiac', value: 'full_moon', emoji: '🌕' },
+    { label: '🌗 Posledna stvrt', description: 'Polmesiac klesa', value: 'last_quarter', emoji: '🌗' },
 ];
 
 const WEATHER_CHANGE_OPTIONS = [
@@ -662,19 +679,20 @@ async function handleNotifAdd(interaction) {
     const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`nw_type_${interaction.user.id}`)
-            .setPlaceholder('Vyber typ notifikácie...')
+            .setPlaceholder('Vyber typ notifikacie...')
             .addOptions(NOTIF_TYPE_OPTIONS.map(t => ({
                 label: t.label, description: t.description, value: t.value,
             })))
     );
 
     const embed = new EmbedBuilder().setColor(0x5865F2)
-        .setTitle('🔔  Nová notifikácia — Krok 1')
-        .setDescription('Vyber typ notifikácie:')
-        .addFields(
-            { name: '⏰ Časové', value: 'Ranný prehľad, Výstrahy — prídu v nastavený čas', inline: false },
-            { name: '⚡ Okamžité', value: 'Prší, Búrka, Extrém — prídu hneď', inline: false },
-            { name: '☀️ Slnko', value: 'Východ/Západ — X minút pred udalosťou', inline: false },
+        .setTitle('🔔  Nova notifikacia')
+        .setDescription(
+            '📋 **Ranny prehlad** — celkovy prehlad dna\n' +
+            '⚠️ **Vystrahy** — burky, dazd, sneh, vietor, namraza...\n' +
+            '🔄 **Zmena pocasia** — ked sa zmeni pocasie\n' +
+            '☀️ **Slnko** — vychod/zapad s offsetom\n' +
+            '🌙 **Mesiac** — upozornenie pri vybranej faze'
         );
 
     const method = (interaction.replied || interaction.deferred) ? 'followUp' : 'reply';
@@ -768,6 +786,22 @@ async function continueNwAfterDest(interaction, def) {
                     .setStyle(ButtonStyle.Secondary),
             )],
         });
+    } else if (def.needsSubtype) {
+        // Vystrahy — vyber ktore typy
+        await interaction.update({
+            embeds: [new EmbedBuilder().setColor(0x5865F2)
+                .setTitle('⚠️  Vystrahy — Vyber typy')
+                .setDescription('Ktore vystrahy chces dostavat?\nMozes vybrat **viac naraz**:')
+            ],
+            components: [new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId(`nw_severe_${interaction.user.id}`)
+                    .setPlaceholder('Vyber vystrahy...')
+                    .setMinValues(1)
+                    .setMaxValues(SEVERE_SUB_OPTIONS.length)
+                    .addOptions(SEVERE_SUB_OPTIONS)
+            )],
+        });
     } else if (def.needsChanges) {
         await interaction.update({
             embeds: [new EmbedBuilder().setColor(0x5865F2)
@@ -783,39 +817,38 @@ async function continueNwAfterDest(interaction, def) {
                     .addOptions(WEATHER_CHANGE_OPTIONS)
             )],
         });
-    } else if (def.needsOffset) {
+    } else if (def.needsSunType) {
+        // Slnko — vyber vychod alebo zapad + offset
         await interaction.update({
             embeds: [new EmbedBuilder().setColor(0x5865F2)
-                .setTitle(`🔔  ${def.label} — Offset`)
-                .setDescription(`Kolko minut pred ${type === 'sunrise' ? 'vychodom' : 'zapadom'} slnka?`)
+                .setTitle('☀️  Slnko — Vyber typ')
+                .setDescription('Chces notifikaciu na vychod alebo zapad?')
             ],
             components: [new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder()
-                    .setCustomId(`nw_offset_sel_${interaction.user.id}`)
-                    .setPlaceholder('Vyber offset...')
+                    .setCustomId(`nw_sun_type_${interaction.user.id}`)
+                    .setPlaceholder('Vyber...')
                     .addOptions([
-                        { label: 'Presne v case', value: '0', emoji: '🎯' },
-                        { label: '5 minut pred', value: '5', emoji: '⏱️' },
-                        { label: '10 minut pred', value: '10', emoji: '⏱️' },
-                        { label: '15 minut pred', value: '15', emoji: '⏱️' },
-                        { label: '30 minut pred', value: '30', emoji: '⏱️' },
-                        { label: '60 minut pred', value: '60', emoji: '⏱️' },
+                        { label: '🌅 Vychod slnka', value: 'sunrise', emoji: '🌅' },
+                        { label: '🌇 Zapad slnka', value: 'sunset', emoji: '🌇' },
                     ])
             )],
         });
-    } else {
-        // Okamzite — rovno ulozit
-        const notif = db.addNotification(interaction.user.id, {
-            channel_id: state.channel_id, type, hour: null, minute: null, event_based: true,
-        });
-        notifWizardState.delete(interaction.user.id);
-
-        const labels = { rain_now: '🌧️ Prave prsi', storm: '⛈️ Burka sa blizi', extreme_temp: '🌡️ Extremna teplota' };
-        const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
+    } else if (def.needsMoonPhase) {
+        // Mesiac — vyber fazy
         await interaction.update({
-            embeds: [embeds.buildSuccessEmbed(
-                `🔔 Notifikacia pridana!\n\n**Typ:** ${labels[type]}\n**Kam:** ${destLabel}\n**Sposob:** Okamzita\n**ID:** \`${notif.id}\``
-            )], components: [],
+            embeds: [new EmbedBuilder().setColor(0x2C3E50)
+                .setTitle('🌙  Mesiac — Vyber fazy')
+                .setDescription('Pri ktorych fazach mesiaca chces byt upozorneny?\nMozes vybrat **viac naraz**:')
+            ],
+            components: [new ActionRowBuilder().addComponents(
+                new StringSelectMenuBuilder()
+                    .setCustomId(`nw_moon_${interaction.user.id}`)
+                    .setPlaceholder('Vyber fazy mesiaca...')
+                    .setMinValues(1)
+                    .setMaxValues(MOON_PHASE_OPTIONS.length)
+                    .addOptions(MOON_PHASE_OPTIONS)
+            )],
         });
     }
 }
@@ -939,6 +972,88 @@ async function handleNwChangesPick(interaction) {
     });
 }
 
+async function handleNwSeverePick(interaction) {
+    const selectedTypes = interaction.values;
+    const state = notifWizardState.get(interaction.user.id);
+    if (!state) return interaction.update({ embeds: [embeds.buildErrorEmbed('Wizard expiroval.')], components: [] });
+
+    const notif = db.addNotification(interaction.user.id, {
+        channel_id: state.channel_id,
+        type: 'severe',
+        hour: null,
+        minute: null,
+        event_based: true,
+        watch_severe: selectedTypes,
+    });
+    notifWizardState.delete(interaction.user.id);
+
+    const severeLabelMap = {};
+    SEVERE_SUB_OPTIONS.forEach(o => { severeLabelMap[o.value] = `${o.emoji} ${o.label.split(' ').slice(1).join(' ')}`; });
+    const selected = selectedTypes.map(t => severeLabelMap[t] || t).join('\n');
+    const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
+
+    await interaction.update({
+        embeds: [embeds.buildSuccessEmbed(
+            `🔔 Notifikacia pridana!\n\n**Typ:** ⚠️ Vystrahy\n**Sledujem:**\n${selected}\n\n**Kam:** ${destLabel}\n**ID:** \`${notif.id}\``
+        )], components: [],
+    });
+}
+
+async function handleNwSunTypePick(interaction) {
+    const sunType = interaction.values[0]; // sunrise or sunset
+    const state = notifWizardState.get(interaction.user.id);
+    if (!state) return interaction.update({ embeds: [embeds.buildErrorEmbed('Wizard expiroval.')], components: [] });
+
+    state.type = sunType; // prepis type na sunrise/sunset
+
+    const label = sunType === 'sunrise' ? 'vychodom' : 'zapadom';
+    await interaction.update({
+        embeds: [new EmbedBuilder().setColor(0x5865F2)
+            .setTitle(`☀️  Kolko minut pred ${label}?`)
+        ],
+        components: [new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`nw_offset_sel_${interaction.user.id}`)
+                .setPlaceholder('Vyber offset...')
+                .addOptions([
+                    { label: 'Presne v case', value: '0', emoji: '🎯' },
+                    { label: '5 minut pred', value: '5', emoji: '⏱️' },
+                    { label: '10 minut pred', value: '10', emoji: '⏱️' },
+                    { label: '15 minut pred', value: '15', emoji: '⏱️' },
+                    { label: '30 minut pred', value: '30', emoji: '⏱️' },
+                    { label: '60 minut pred', value: '60', emoji: '⏱️' },
+                ])
+        )],
+    });
+}
+
+async function handleNwMoonPick(interaction) {
+    const selectedPhases = interaction.values;
+    const state = notifWizardState.get(interaction.user.id);
+    if (!state) return interaction.update({ embeds: [embeds.buildErrorEmbed('Wizard expiroval.')], components: [] });
+
+    const notif = db.addNotification(interaction.user.id, {
+        channel_id: state.channel_id,
+        type: 'moon',
+        hour: null,
+        minute: null,
+        event_based: true,
+        watch_moon: selectedPhases,
+    });
+    notifWizardState.delete(interaction.user.id);
+
+    const moonLabelMap = {};
+    MOON_PHASE_OPTIONS.forEach(o => { moonLabelMap[o.value] = `${o.emoji} ${o.label.split(' ').slice(1).join(' ')}`; });
+    const selected = selectedPhases.map(p => moonLabelMap[p] || p).join('\n');
+    const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
+
+    await interaction.update({
+        embeds: [embeds.buildSuccessEmbed(
+            `🔔 Notifikacia pridana!\n\n**Typ:** 🌙 Mesiac\n**Fazy:**\n${selected}\n\n**Kam:** ${destLabel}\n**ID:** \`${notif.id}\``
+        )], components: [],
+    });
+}
+
 // ─── Reset ─────────────────────────────────
 
 async function handleReset(interaction) {
@@ -974,44 +1089,83 @@ async function handleSetupDone(interaction) {
 async function handleNotifikacie(interaction, isRefresh = false) {
     const settings = db.getUser(interaction.user.id);
     const notifs = settings?.notifications || [];
-    const TL = { daily: 'Ranný prehľad', severe: 'Výstrahy', storm: 'Búrka', rain_now: 'Prší', extreme_temp: 'Extrém', sunrise: 'Východ slnka', sunset: 'Západ slnka', weather_change: 'Zmena počasia' };
 
     if (notifs.length === 0) {
-        const embed = new EmbedBuilder().setColor(0x5865F2).setTitle('🔔  Notifikácie')
-            .setDescription('Nemáš žiadne notifikácie.\nPouži `/nastavenia` → Pridať notifikáciu.');
+        const embed = new EmbedBuilder().setColor(0x5865F2).setTitle('🔔  Notifikacie')
+            .setDescription('Nemas ziadne notifikacie.\nPouzi `/nastavenia` alebo klikni nizsie.');
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('notif_add').setLabel('Pridať').setEmoji('➕').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('notif_add').setLabel('Pridat').setEmoji('➕').setStyle(ButtonStyle.Success),
         );
         if (isRefresh) return interaction.update({ embeds: [embed], components: [row] });
         return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
     }
 
-    const list = notifs.map(n => {
-        const s = n.enabled ? '🟢' : '🔴';
+    // Zgrupuj notifikacie podla kategorie
+    const TL = {
+        daily: { cat: '📋 Prehlad', name: 'Ranny prehlad' },
+        severe: { cat: '⚠️ Vystrahy', name: 'Vystrahy' },
+        rain_now: { cat: '⚠️ Vystrahy', name: 'Dazd' },
+        storm: { cat: '⚠️ Vystrahy', name: 'Burka' },
+        extreme_temp: { cat: '⚠️ Vystrahy', name: 'Extrem. teplota' },
+        snow: { cat: '⚠️ Vystrahy', name: 'Snezenie' },
+        fog: { cat: '⚠️ Vystrahy', name: 'Hmla' },
+        wind: { cat: '⚠️ Vystrahy', name: 'Silny vietor' },
+        frost: { cat: '⚠️ Vystrahy', name: 'Namraza' },
+        weather_change: { cat: '🔄 Zmeny', name: 'Zmena pocasia' },
+        sunrise: { cat: '☀️ Slnko', name: 'Vychod' },
+        sunset: { cat: '☀️ Slnko', name: 'Zapad' },
+        moon: { cat: '🌙 Mesiac', name: 'Faza mesiaca' },
+    };
+
+    const groups = {};
+    for (const n of notifs) {
+        const info = TL[n.type] || { cat: '🔔 Ostatne', name: n.type };
+        if (!groups[info.cat]) groups[info.cat] = [];
+
+        const status = n.enabled ? '🟢' : '🔴';
         let timing;
         if (n.event_based || n.hour == null) {
-            if (n.offset_minutes != null) timing = n.offset_minutes === 0 ? 'V čase' : `${n.offset_minutes}min pred`;
-            else timing = '⚡ Okamžitá';
+            if (n.offset_minutes != null) timing = n.offset_minutes === 0 ? 'v case' : `${n.offset_minutes}min pred`;
+            else timing = '⚡ hned';
         } else {
-            timing = `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
+            timing = `⏰ ${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
         }
-        return `${s} **${timing}** — ${TL[n.type]||n.type} — <#${n.channel_id}> — \`${n.id}\``;
-    }).join('\n');
 
-    const embed = new EmbedBuilder().setColor(0x5865F2).setTitle('🔔  Notifikácie').setDescription(list).setFooter({ text: 'Vyber nižšie na správu' });
+        let detail = info.name;
+        if (n.watch_severe?.length) detail += ` (${n.watch_severe.length} typov)`;
+        if (n.watch_changes?.length) detail += ` (${n.watch_changes.length} zmien)`;
+        if (n.watch_moon?.length) {
+            const moonNames = { new_moon: 'Nov', first_quarter: '1. stvrt', full_moon: 'Spln', last_quarter: 'Posl. stvrt' };
+            detail += `: ${n.watch_moon.map(m => moonNames[m] || m).join(', ')}`;
+        }
+
+        groups[info.cat].push(`${status} **${detail}** — ${timing} — \`#${n.id}\``);
+    }
+
+    let description = '';
+    for (const [cat, lines] of Object.entries(groups)) {
+        description += `\n**${cat}**\n${lines.join('\n')}\n`;
+    }
+
+    const embed = new EmbedBuilder().setColor(0x5865F2)
+        .setTitle(`🔔  Notifikacie (${notifs.length})`)
+        .setDescription(description.trim())
+        .setFooter({ text: 'Vyber nizsie na spravu' });
+
     const rows = [];
     if (notifs.length > 0) {
+        const selectOptions = notifs.map(n => {
+            const info = TL[n.type] || { name: n.type };
+            let timing = (n.event_based || n.hour == null) ? '⚡' : `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
+            return { label: `#${n.id} ${info.name} — ${timing}`, description: `${n.enabled?'Aktivna':'Vypnuta'}`, value: n.id };
+        });
         rows.push(new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder().setCustomId(`notif_manage_${interaction.user.id}`).setPlaceholder('Spravovať notifikáciu...')
-                .addOptions(notifs.map(n => {
-                    let timing = (n.event_based || n.hour == null) ? '⚡' : `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
-                    return { label: `${timing} — ${TL[n.type]||n.type}`, description: `${n.enabled?'Aktívna':'Vypnutá'} | ${n.id}`, value: n.id };
-                }))
+            new StringSelectMenuBuilder().setCustomId(`notif_manage_${interaction.user.id}`).setPlaceholder('Spravovat notifikaciu...').addOptions(selectOptions)
         ));
     }
     rows.push(new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('notif_add').setLabel('Pridať').setEmoji('➕').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('notif_refresh').setLabel('Obnoviť').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('notif_add').setLabel('Pridat').setEmoji('➕').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('notif_refresh').setLabel('Obnovit').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
     ));
 
     if (isRefresh) return interaction.update({ embeds: [embed], components: rows });

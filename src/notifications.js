@@ -25,6 +25,11 @@ function init(discordClient) {
         updateVoiceChannels().catch(console.error);
     });
 
+    // Denne o 12:00 — moon phase notifs
+    cron.schedule('0 12 * * *', () => {
+        checkMoonNotifs().catch(console.error);
+    });
+
     console.log('[NOTIF] Systém spustený');
 }
 
@@ -335,6 +340,54 @@ async function updateVoiceChannels() {
             }
         } catch (err) {
             console.error(`[VOICE] ${guildId}:`, err.message);
+        }
+    }
+}
+
+// ─── Moon phase notifs ────────────────────
+
+async function checkMoonNotifs() {
+    if (!client?.isReady()) return;
+
+    const moon = weather.getMoonPhase();
+    // Mapuj fazu na hodnoty
+    let currentPhase = null;
+    if (moon.name === 'Nov') currentPhase = 'new_moon';
+    else if (moon.name === 'Prvá štvrť') currentPhase = 'first_quarter';
+    else if (moon.name === 'Spln') currentPhase = 'full_moon';
+    else if (moon.name === 'Posledná štvrť') currentPhase = 'last_quarter';
+
+    if (!currentPhase) return; // Nie je hlavna faza dnes
+
+    for (const [userId, settings] of Object.entries(db.getAllUsers())) {
+        if (!settings.notifications) continue;
+
+        const moonNotifs = settings.notifications.filter(n => n.enabled && n.type === 'moon' && n.watch_moon?.includes(currentPhase));
+        if (!moonNotifs.length) continue;
+
+        // Cooldown — raz denne
+        const lastAlert = db.getAlertState(userId) || {};
+        const todayKey = `moon_${new Date().toISOString().split('T')[0]}`;
+        if (lastAlert[todayKey]) continue;
+        lastAlert[todayKey] = true;
+        db.setAlertState(userId, lastAlert);
+
+        for (const notif of moonNotifs) {
+            try {
+                const channel = await client.channels.fetch(notif.channel_id).catch(() => null);
+                if (!channel) continue;
+
+                const { EmbedBuilder } = require('discord.js');
+                const embed = new EmbedBuilder()
+                    .setColor(0x2C3E50)
+                    .setTitle(`${moon.emoji}  ${moon.name}`)
+                    .setDescription(`Dnes je **${moon.name}**!\nDen lunarneho cyklu: ${moon.synodicDay}/30`)
+                    .setFooter({ text: '🌙 Lunarny alert' }).setTimestamp();
+
+                await channel.send({ content: `<@${userId}> 🌙 **${moon.name} dnes!**`, embeds: [embed] });
+            } catch (err) {
+                console.error(`[MOON] ${userId}:`, err.message);
+            }
         }
     }
 }

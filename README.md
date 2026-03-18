@@ -1,4 +1,4 @@
-# ⛅ Weather Bot — Discord počasie bot
+# ⛅ Nimbus — Discord počasie bot
 
 Slovenský Discord bot na zobrazenie počasia s per-user nastaveniami, automatickými notifikáciami a predpoveďou na viac dní. Používa **Open-Meteo API** (free, bez API kľúča).
 

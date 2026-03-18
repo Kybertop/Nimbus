@@ -794,7 +794,7 @@ function buildHistoryEmbed(dailyData, historical, userSettings) {
         .setDescription(`**${verdict}**`)
         .addFields(
             { name: '🌡️ Dnes', value: `↑ **${todayMax}${tu}** ↓ ${todayMin}${tu}`, inline: true },
-            { name: '📈 Priemer (${historical.count} rokov)', value: `↑ **${historical.avgMax}${tu}** ↓ ${historical.avgMin}${tu}`, inline: true },
+            { name: `📈 Priemer (${historical.count} rokov)`, value: `↑ **${historical.avgMax}${tu}** ↓ ${historical.avgMin}${tu}`, inline: true },
             { name: '📊 Rozdiel', value: `Max: **${diffMaxStr}°**\nMin: **${diffMinStr}°**`, inline: true },
             { name: '📅 Po rokoch', value: `\`\`\`\n${yearLines}\n\`\`\``, inline: false },
         )

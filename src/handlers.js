@@ -43,10 +43,6 @@ async function handleInteraction(interaction) {
         if (id === 'notif_refresh') return handleNotifikacie(interaction, true);
         if (id.startsWith('fav_use_')) return handleFavUse(interaction);
         if (id.startsWith('fav_del_')) return handleFavDel(interaction);
-        // Notif wizard
-        if (id.startsWith('nw_time_')) return handleNwTimeModal(interaction);
-        if (id === 'nw_save') return handleNwSave(interaction);
-        if (id.startsWith('nw_offset_')) return handleNwOffsetSelect(interaction);
         if (id.startsWith('nw_mode_time_')) return handleNwModeTime(interaction);
         if (id.startsWith('nw_mode_instant_')) return handleNwModeInstant(interaction);
         if (id.startsWith('help_')) return handleHelp(interaction, true);
@@ -58,6 +54,7 @@ async function handleInteraction(interaction) {
         if (interaction.customId.startsWith('notif_manage_')) return handleNotifManageSelect(interaction);
         if (interaction.customId.startsWith('fav_pick_')) return handleFavPick(interaction);
         if (interaction.customId.startsWith('nw_type_')) return handleNwTypePick(interaction);
+        if (interaction.customId.startsWith('nw_dest_')) return handleNwDestPick(interaction);
         if (interaction.customId.startsWith('nw_offset_sel_')) return handleNwOffsetPick(interaction);
         if (interaction.customId.startsWith('nw_changes_')) return handleNwChangesPick(interaction);
         if (interaction.customId.startsWith('poll_day_')) return handlePollDayPick(interaction);
@@ -125,7 +122,7 @@ function buildWeatherRows(lid, activeTyp = '') {
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`w:aqi:${lid}`).setLabel('Vzduch').setEmoji('🏔️').setStyle(s('aqi')),
         new ButtonBuilder().setCustomId(`w:nice:${lid}`).setLabel('Pekne?').setEmoji('☀️').setStyle(s('nice')),
-        new ButtonBuilder().setCustomId(`w:outfit:${lid}`).setLabel('Obliecť').setEmoji('👔').setStyle(s('outfit')),
+        new ButtonBuilder().setCustomId(`w:outfit:${lid}`).setLabel('Oblečenie').setEmoji('👔').setStyle(s('outfit')),
         new ButtonBuilder().setCustomId(`w:traffic:${lid}`).setLabel('Doprava').setEmoji('🚗').setStyle(s('traffic')),
         new ButtonBuilder().setCustomId(`w:history:${lid}`).setLabel('vs Priemer').setEmoji('📊').setStyle(s('history')),
     );
@@ -563,75 +560,134 @@ async function handleNwTypePick(interaction) {
 
     notifWizardState.set(interaction.user.id, { type, channel_id: interaction.channelId });
 
+    // Najprv sa opytaj kam posielat
+    const destOptions = [
+        { label: 'Do mojich DMs', description: 'Posle mi sukromnu spravu', value: 'dm', emoji: '📩' },
+    ];
+
+    // Ak sme na serveri, ponukni aj aktualny kanal
+    if (interaction.guildId) {
+        destOptions.push({
+            label: `Do #${interaction.channel?.name || 'tento kanal'}`,
+            description: 'Posle spravu do tohto kanala na serveri',
+            value: `ch_${interaction.channelId}`,
+            emoji: '📢',
+        });
+    }
+
+    // Ak je len jedna moznost (DM), preskoc vyber
+    if (destOptions.length === 1) {
+        notifWizardState.get(interaction.user.id).dest = 'dm';
+        return continueNwAfterDest(interaction, def);
+    }
+
+    await interaction.update({
+        embeds: [new EmbedBuilder().setColor(0x5865F2)
+            .setTitle(`🔔  ${def.label} — Kam posielat?`)
+            .setDescription('Vyber kam chces dostavat notifikacie:')
+        ],
+        components: [new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId(`nw_dest_${interaction.user.id}`)
+                .setPlaceholder('Kam posielat?')
+                .addOptions(destOptions)
+        )],
+    });
+}
+
+async function handleNwDestPick(interaction) {
+    const val = interaction.values[0];
+    const state = notifWizardState.get(interaction.user.id);
+    if (!state) return interaction.update({ embeds: [embeds.buildErrorEmbed('Wizard expiroval.')], components: [] });
+
+    if (val === 'dm') {
+        state.dest = 'dm';
+        // Ziskaj DM channel ID
+        try {
+            const dm = await interaction.user.createDM();
+            state.channel_id = dm.id;
+        } catch {
+            return interaction.update({ embeds: [embeds.buildErrorEmbed('Nepodarilo sa otvorit DM. Mas zapnute DMs?')], components: [] });
+        }
+    } else {
+        state.dest = 'channel';
+        state.channel_id = val.replace('ch_', '');
+    }
+
+    const def = NOTIF_TYPE_OPTIONS.find(t => t.value === state.type);
+    return continueNwAfterDest(interaction, def);
+}
+
+async function continueNwAfterDest(interaction, def) {
+    const state = notifWizardState.get(interaction.user.id);
+    const type = state.type;
+
     if (def.canSchedule) {
-        // Daj na výber: konkrétny čas ALEBO okamžite
         await interaction.update({
             embeds: [new EmbedBuilder().setColor(0x5865F2)
-                .setTitle(`🔔  ${def.label} — Kedy dostávať?`)
-                .setDescription('Vyber ako chceš dostávať túto notifikáciu:')
+                .setTitle(`🔔  ${def.label} — Kedy dostavat?`)
+                .setDescription('Vyber ako chces dostavat tuto notifikaciu:')
             ],
             components: [new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(`nw_mode_time_${type}`)
-                    .setLabel('V konkrétny čas')
+                    .setLabel('V konkretny cas')
                     .setEmoji('⏰')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
                     .setCustomId(`nw_mode_instant_${type}`)
-                    .setLabel('Hneď ako sa niečo zistí')
+                    .setLabel('Hned ako sa nieco zisti')
                     .setEmoji('⚡')
                     .setStyle(ButtonStyle.Secondary),
             )],
         });
     } else if (def.needsChanges) {
-        // Weather change — multi-select aké zmeny chce
         await interaction.update({
             embeds: [new EmbedBuilder().setColor(0x5865F2)
-                .setTitle('🔄  Zmena počasia — Krok 2')
-                .setDescription('Vyber na aké zmeny chceš byť upozornený.\nMôžeš vybrať **viac naraz**:')
+                .setTitle('🔄  Zmena pocasia — Vyber zmeny')
+                .setDescription('Vyber na ake zmeny chces byt upozorneny.\nMozes vybrat **viac naraz**:')
             ],
             components: [new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder()
                     .setCustomId(`nw_changes_${interaction.user.id}`)
-                    .setPlaceholder('Vyber zmeny počasia...')
+                    .setPlaceholder('Vyber zmeny pocasia...')
                     .setMinValues(1)
                     .setMaxValues(WEATHER_CHANGE_OPTIONS.length)
                     .addOptions(WEATHER_CHANGE_OPTIONS)
             )],
         });
     } else if (def.needsOffset) {
-        // Sunrise/sunset — offset dropdown
         await interaction.update({
             embeds: [new EmbedBuilder().setColor(0x5865F2)
-                .setTitle(`🔔  ${def.label} — Krok 2`)
-                .setDescription(`Koľko minút pred ${type === 'sunrise' ? 'východom' : 'západom'} slnka?`)
+                .setTitle(`🔔  ${def.label} — Offset`)
+                .setDescription(`Kolko minut pred ${type === 'sunrise' ? 'vychodom' : 'zapadom'} slnka?`)
             ],
             components: [new ActionRowBuilder().addComponents(
                 new StringSelectMenuBuilder()
                     .setCustomId(`nw_offset_sel_${interaction.user.id}`)
                     .setPlaceholder('Vyber offset...')
                     .addOptions([
-                        { label: 'Presne v čase', value: '0', emoji: '🎯' },
-                        { label: '5 minút pred', value: '5', emoji: '⏱️' },
-                        { label: '10 minút pred', value: '10', emoji: '⏱️' },
-                        { label: '15 minút pred', value: '15', emoji: '⏱️' },
-                        { label: '30 minút pred', value: '30', emoji: '⏱️' },
-                        { label: '60 minút pred', value: '60', emoji: '⏱️' },
+                        { label: 'Presne v case', value: '0', emoji: '🎯' },
+                        { label: '5 minut pred', value: '5', emoji: '⏱️' },
+                        { label: '10 minut pred', value: '10', emoji: '⏱️' },
+                        { label: '15 minut pred', value: '15', emoji: '⏱️' },
+                        { label: '30 minut pred', value: '30', emoji: '⏱️' },
+                        { label: '60 minut pred', value: '60', emoji: '⏱️' },
                     ])
             )],
         });
     } else {
-        // Okamžité — rovno uložiť
-        const state = notifWizardState.get(interaction.user.id);
+        // Okamzite — rovno ulozit
         const notif = db.addNotification(interaction.user.id, {
             channel_id: state.channel_id, type, hour: null, minute: null, event_based: true,
         });
         notifWizardState.delete(interaction.user.id);
 
-        const labels = { rain_now: '🌧️ Práve prší', storm: '⛈️ Búrka sa blíži', extreme_temp: '🌡️ Extrémna teplota' };
+        const labels = { rain_now: '🌧️ Prave prsi', storm: '⛈️ Burka sa blizi', extreme_temp: '🌡️ Extremna teplota' };
+        const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
         await interaction.update({
             embeds: [embeds.buildSuccessEmbed(
-                `🔔 Notifikácia pridaná!\n\n**Typ:** ${labels[type]}\n**Kanál:** <#${state.channel_id}>\n**Spôsob:** Okamžitá — príde hneď\n**ID:** \`${notif.id}\``
+                `🔔 Notifikacia pridana!\n\n**Typ:** ${labels[type]}\n**Kam:** ${destLabel}\n**Sposob:** Okamzita\n**ID:** \`${notif.id}\``
             )], components: [],
         });
     }
@@ -665,21 +721,13 @@ async function handleNwModeInstant(interaction) {
     });
     notifWizardState.delete(interaction.user.id);
 
-    const labels = { daily: '📋 Ranný prehľad', severe: '⚠️ Výstrahy počasia' };
+    const labels = { daily: '📋 Ranny prehlad', severe: '⚠️ Vystrahy pocasia' };
+    const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
     await interaction.update({
         embeds: [embeds.buildSuccessEmbed(
-            `🔔 Notifikácia pridaná!\n\n**Typ:** ${labels[type] || type}\n**Kedy:** ⚡ Okamžite keď sa niečo zistí\n**Kanál:** <#${state.channel_id}>\n**ID:** \`${notif.id}\``
+            `🔔 Notifikacia pridana!\n\n**Typ:** ${labels[type] || type}\n**Kedy:** ⚡ Okamzite\n**Kam:** ${destLabel}\n**ID:** \`${notif.id}\``
         )], components: [],
     });
-}
-
-async function handleNwTimeModal(interaction) {
-    const type = interaction.customId.replace('nw_time_', '');
-    const modal = new ModalBuilder().setCustomId(`modal_nw_time_${type}`).setTitle('⏰ Nastaviť čas');
-    modal.addComponents(new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('nw_time').setLabel('Čas (HH:MM)').setPlaceholder('07:00').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(5)
-    ));
-    await interaction.showModal(modal);
 }
 
 async function handleNwTimeSubmit(interaction) {
@@ -697,10 +745,11 @@ async function handleNwTimeSubmit(interaction) {
     notifWizardState.delete(interaction.user.id);
     if (!notif) return interaction.reply({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], ephemeral: true });
 
-    const labels = { daily: '📋 Ranný prehľad', severe: '⚠️ Denné výstrahy' };
+    const labels = { daily: '📋 Ranny prehlad', severe: '⚠️ Denne vystrahy' };
     const timeLabel = `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`;
+    const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
     await interaction.reply({ embeds: [embeds.buildSuccessEmbed(
-        `🔔 Notifikácia pridaná!\n\n**Typ:** ${labels[state.type||type]||type}\n**Čas:** ${timeLabel}\n**Kanál:** <#${state.channel_id}>\n**ID:** \`${notif.id}\``
+        `🔔 Notifikacia pridana!\n\n**Typ:** ${labels[state.type||type]||type}\n**Cas:** ${timeLabel}\n**Kam:** ${destLabel}\n**ID:** \`${notif.id}\``
     )], ephemeral: true });
 }
 
@@ -715,11 +764,12 @@ async function handleNwOffsetPick(interaction) {
     });
     notifWizardState.delete(interaction.user.id);
 
-    const labels = { sunrise: '🌅 Východ slnka', sunset: '🌇 Západ slnka' };
-    const offsetText = offset === 0 ? 'Presne v čase' : `${offset} min pred`;
+    const labels = { sunrise: '🌅 Vychod slnka', sunset: '🌇 Zapad slnka' };
+    const offsetText = offset === 0 ? 'Presne v case' : `${offset} min pred`;
+    const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
     await interaction.update({
         embeds: [embeds.buildSuccessEmbed(
-            `🔔 Notifikácia pridaná!\n\n**Typ:** ${labels[state.type]}\n**Kedy:** ${offsetText}\n**Kanál:** <#${state.channel_id}>\n**ID:** \`${notif.id}\``
+            `🔔 Notifikacia pridana!\n\n**Typ:** ${labels[state.type]}\n**Kedy:** ${offsetText}\n**Kam:** ${destLabel}\n**ID:** \`${notif.id}\``
         )], components: [],
     });
 }
@@ -753,10 +803,11 @@ async function handleNwChangesPick(interaction) {
     };
 
     const selected = selectedChanges.map(c => changeLabels[c] || c).join('\n');
+    const destLabel = state.dest === 'dm' ? '📩 DM' : `📢 <#${state.channel_id}>`;
 
     await interaction.update({
         embeds: [embeds.buildSuccessEmbed(
-            `🔔 Notifikácia pridaná!\n\n**Typ:** 🔄 Zmena počasia\n**Sledujem:**\n${selected}\n\n**Kanál:** <#${state.channel_id}>\n**Spôsob:** Check každých 5 min\n**ID:** \`${notif.id}\``
+            `🔔 Notifikacia pridana!\n\n**Typ:** 🔄 Zmena pocasia\n**Sledujem:**\n${selected}\n\n**Kam:** ${destLabel}\n**ID:** \`${notif.id}\``
         )], components: [],
     });
 }

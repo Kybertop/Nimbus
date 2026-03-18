@@ -75,14 +75,24 @@ async function handleInteraction(interaction) {
 
 async function resolveLocation(interaction, mestoOption) {
     let userSettings = db.getUser(interaction.user.id);
+    const units = getUserUnits(userSettings);
     if (mestoOption) {
         const results = await weather.geocode(mestoOption);
         if (results.length === 0) return { error: `Mesto "${mestoOption}" sa nenašlo.` };
         const r = results[0];
-        return { lat: r.latitude, lon: r.longitude, tz: r.timezone || 'auto', city: r.name, settings: { city: r.name, latitude: r.latitude, longitude: r.longitude, timezone: r.timezone } };
+        return { lat: r.latitude, lon: r.longitude, tz: r.timezone || 'auto', city: r.name, units, settings: { city: r.name, latitude: r.latitude, longitude: r.longitude, timezone: r.timezone } };
     }
     if (!userSettings?.latitude) return { error: 'Najprv si nastav mesto — použi `/nastavenia`' };
-    return { lat: userSettings.latitude, lon: userSettings.longitude, tz: userSettings.timezone || 'auto', city: userSettings.city, settings: userSettings };
+    return { lat: userSettings.latitude, lon: userSettings.longitude, tz: userSettings.timezone || 'auto', city: userSettings.city, units, settings: userSettings };
+}
+
+function getUserUnits(settings) {
+    return {
+        temp: settings?.units === 'fahrenheit' ? 'fahrenheit' : 'celsius',
+        wind: settings?.wind_unit || 'kmh',
+        tempSymbol: settings?.units === 'fahrenheit' ? '°F' : '°C',
+        windSymbol: settings?.wind_unit === 'ms' ? 'm/s' : settings?.wind_unit === 'mph' ? 'mph' : 'km/h',
+    };
 }
 
 // Skrátený ID pre customId (Discord max 100 znakov)
@@ -167,8 +177,8 @@ async function handlePocasie(interaction) {
 
     try {
         const [data, dailyData] = await Promise.all([
-            weather.getCurrentWeather(loc.lat, loc.lon, loc.tz),
-            weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1),
+            weather.getCurrentWeather(loc.lat, loc.lon, loc.tz, loc.units),
+            weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
         ]);
         const embed = embeds.buildCurrentWeatherEmbed(data, loc.settings, dailyData);
         const lid = locId(loc.lat, loc.lon, loc.tz, loc.city);
@@ -181,14 +191,12 @@ async function handlePocasie(interaction) {
 }
 
 async function handleWeatherButton(interaction) {
-    // w:TYPE:LAT|LON|TZ|CITY
     const parts = interaction.customId.split(':');
     const typ = parts[1];
     const { lat, lon, tz, city } = parseLocId(parts.slice(2).join(':'));
-    console.log(`[BTN] typ=${typ} city="${city}" lat=${lat} lon=${lon} customId=${interaction.customId}`);
-    // Použi mesto z buttonu, nie z DB — aby fungovali jednorazové mestá
     const userSettings = { city: city || `${lat}, ${lon}`, latitude: lat, longitude: lon, timezone: tz };
     const lid = locId(lat, lon, tz, city);
+    const units = getUserUnits(db.getUser(interaction.user.id));
 
     await interaction.deferUpdate();
     try {
@@ -196,27 +204,27 @@ async function handleWeatherButton(interaction) {
         switch (typ) {
             case 'current': {
                 const [data, dd] = await Promise.all([
-                    weather.getCurrentWeather(lat, lon, tz),
-                    weather.getDailyForecast(lat, lon, tz, 1),
+                    weather.getCurrentWeather(lat, lon, tz, units),
+                    weather.getDailyForecast(lat, lon, tz, 1, units),
                 ]);
                 embed = embeds.buildCurrentWeatherEmbed(data, userSettings, dd);
                 break;
             }
             case 'today': {
                 const [hd, dd] = await Promise.all([
-                    weather.getHourlyForecast(lat, lon, tz, 1),
-                    weather.getDailyForecast(lat, lon, tz, 1),
+                    weather.getHourlyForecast(lat, lon, tz, 1, units),
+                    weather.getDailyForecast(lat, lon, tz, 1, units),
                 ]);
                 embed = embeds.buildDailySummaryEmbed(hd, dd, userSettings);
                 break;
             }
             case '7d': {
-                const data = await weather.getDailyForecast(lat, lon, tz, 7);
+                const data = await weather.getDailyForecast(lat, lon, tz, 7, units);
                 embed = embeds.buildMultiDayEmbed(data, userSettings);
                 break;
             }
             case '14d': {
-                const data = await weather.getDailyForecast(lat, lon, tz, 14);
+                const data = await weather.getDailyForecast(lat, lon, tz, 14, units);
                 embed = embeds.buildMultiDayEmbed(data, userSettings);
                 break;
             }
@@ -226,23 +234,23 @@ async function handleWeatherButton(interaction) {
                 break;
             }
             case 'nice': {
-                const data = await weather.getDailyForecast(lat, lon, tz, 16);
+                const data = await weather.getDailyForecast(lat, lon, tz, 16, units);
                 const niceDays = weather.findNiceDays(data);
                 embed = embeds.buildNiceDaysEmbed(niceDays, userSettings);
                 break;
             }
             case 'outfit': {
                 const [cd, dd] = await Promise.all([
-                    weather.getCurrentWeather(lat, lon, tz),
-                    weather.getDailyForecast(lat, lon, tz, 1),
+                    weather.getCurrentWeather(lat, lon, tz, units),
+                    weather.getDailyForecast(lat, lon, tz, 1, units),
                 ]);
                 embed = embeds.buildOutfitEmbed(weather.getOutfitAdvice(cd, dd), userSettings);
                 break;
             }
             case 'traffic': {
                 const [cd, hd] = await Promise.all([
-                    weather.getCurrentWeather(lat, lon, tz),
-                    weather.getHourlyForecast(lat, lon, tz, 2),
+                    weather.getCurrentWeather(lat, lon, tz, units),
+                    weather.getHourlyForecast(lat, lon, tz, 2, units),
                 ]);
                 embed = embeds.buildTrafficEmbed(weather.getTrafficWarnings(cd, hd), userSettings);
                 break;
@@ -793,11 +801,11 @@ async function handleNotifikacie(interaction, isRefresh = false) {
     const list = notifs.map(n => {
         const s = n.enabled ? '🟢' : '🔴';
         let timing;
-        if (n.event_based) {
+        if (n.event_based || n.hour == null) {
             if (n.offset_minutes != null) timing = n.offset_minutes === 0 ? 'V čase' : `${n.offset_minutes}min pred`;
             else timing = '⚡ Okamžitá';
         } else {
-            timing = `${String(n.hour??0).padStart(2,'0')}:${String(n.minute??0).padStart(2,'0')}`;
+            timing = `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
         }
         return `${s} **${timing}** — ${TL[n.type]||n.type} — <#${n.channel_id}> — \`${n.id}\``;
     }).join('\n');
@@ -808,7 +816,7 @@ async function handleNotifikacie(interaction, isRefresh = false) {
         rows.push(new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder().setCustomId(`notif_manage_${interaction.user.id}`).setPlaceholder('Spravovať notifikáciu...')
                 .addOptions(notifs.map(n => {
-                    let timing = n.event_based ? '⚡' : `${String(n.hour??0).padStart(2,'0')}:${String(n.minute??0).padStart(2,'0')}`;
+                    let timing = (n.event_based || n.hour == null) ? '⚡' : `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
                     return { label: `${timing} — ${TL[n.type]||n.type}`, description: `${n.enabled?'Aktívna':'Vypnutá'} | ${n.id}`, value: n.id };
                 }))
         ));
@@ -830,11 +838,11 @@ async function handleNotifManageSelect(interaction) {
 
     const TL = { daily: '📋 Ranný prehľad', severe: '⚠️ Výstrahy', storm: '⛈️ Búrka', rain_now: '🌧️ Prší', extreme_temp: '🌡️ Extrém', sunrise: '🌅 Východ slnka', sunset: '🌇 Západ slnka', weather_change: '🔄 Zmena počasia' };
     let timing;
-    if (n.event_based) {
+    if (n.event_based || n.hour == null) {
         if (n.offset_minutes != null) timing = n.offset_minutes === 0 ? 'V čase udalosti' : `${n.offset_minutes} min pred`;
         else timing = '⚡ Okamžitá';
     } else {
-        timing = `${String(n.hour??0).padStart(2,'0')}:${String(n.minute??0).padStart(2,'0')}`;
+        timing = `${String(n.hour).padStart(2,'0')}:${String(n.minute ?? 0).padStart(2,'0')}`;
     }
     const embed = new EmbedBuilder().setColor(n.enabled ? 0x57F287 : 0xED4245).setTitle(`🔔 ${TL[n.type]||n.type}`)
         .addFields(

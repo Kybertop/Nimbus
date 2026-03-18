@@ -103,27 +103,39 @@ const DAILY_VARS_FULL = [
     'wind_gusts_10m_max', 'uv_index_max',
 ];
 
-async function getCurrentWeather(lat, lon, timezone = 'auto') {
-    return fetchJson(buildUrl('https://api.open-meteo.com/v1/forecast', {
+async function getCurrentWeather(lat, lon, timezone = 'auto', units = {}) {
+    const params = {
         latitude: String(lat), longitude: String(lon),
         current: CURRENT_VARS, timezone: tz(timezone),
-    }));
+    };
+    if (units.temp === 'fahrenheit') params.temperature_unit = 'fahrenheit';
+    if (units.wind === 'ms') params.wind_speed_unit = 'ms';
+    if (units.wind === 'mph') params.wind_speed_unit = 'mph';
+    return fetchJson(buildUrl('https://api.open-meteo.com/v1/forecast', params));
 }
 
-async function getHourlyForecast(lat, lon, timezone = 'auto', days = 1) {
-    return fetchJson(buildUrl('https://api.open-meteo.com/v1/forecast', {
+async function getHourlyForecast(lat, lon, timezone = 'auto', days = 1, units = {}) {
+    const params = {
         latitude: String(lat), longitude: String(lon),
         hourly: HOURLY_VARS, daily: DAILY_VARS_SHORT,
         timezone: tz(timezone), forecast_days: String(Math.max(1, days)),
-    }));
+    };
+    if (units.temp === 'fahrenheit') params.temperature_unit = 'fahrenheit';
+    if (units.wind === 'ms') params.wind_speed_unit = 'ms';
+    if (units.wind === 'mph') params.wind_speed_unit = 'mph';
+    return fetchJson(buildUrl('https://api.open-meteo.com/v1/forecast', params));
 }
 
-async function getDailyForecast(lat, lon, timezone = 'auto', days = 7) {
-    return fetchJson(buildUrl('https://api.open-meteo.com/v1/forecast', {
+async function getDailyForecast(lat, lon, timezone = 'auto', days = 7, units = {}) {
+    const params = {
         latitude: String(lat), longitude: String(lon),
         daily: DAILY_VARS_FULL, timezone: tz(timezone),
         forecast_days: String(Math.min(Math.max(1, days), 16)),
-    }));
+    };
+    if (units.temp === 'fahrenheit') params.temperature_unit = 'fahrenheit';
+    if (units.wind === 'ms') params.wind_speed_unit = 'ms';
+    if (units.wind === 'mph') params.wind_speed_unit = 'mph';
+    return fetchJson(buildUrl('https://api.open-meteo.com/v1/forecast', params));
 }
 
 // ─── Air Quality ───────────────────────────

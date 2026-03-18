@@ -22,6 +22,9 @@ function getColorForWeather(code, isDay = true) {
 
 function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
     const c = data.current;
+    const cu = data.current_units || {};
+    const tu = cu.temperature_2m || '°C';
+    const wu = cu.wind_speed_10m || 'km/h';
     const w = getWeatherInfo(c.weather_code);
     const wind = getWindDirection(c.wind_direction_10m);
     const isDay = c.is_day === 1;
@@ -34,11 +37,11 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
         .setDescription(`**${w.text}**`)
         .setThumbnail(icon)
         .addFields(
-            { name: '🌡️ Teplota', value: `**${c.temperature_2m}°C**\nPocitová: ${c.apparent_temperature}°C`, inline: true },
-            { name: '💨 Vietor', value: `${c.wind_speed_10m} km/h ${wind.sk}\nNárazy: ${c.wind_gusts_10m} km/h`, inline: true },
+            { name: '🌡️ Teplota', value: `**${c.temperature_2m}${tu}**\nPocitová: ${c.apparent_temperature}${tu}`, inline: true },
+            { name: '💨 Vietor', value: `${c.wind_speed_10m} ${wu} ${wind.sk}\nNárazy: ${c.wind_gusts_10m} ${wu}`, inline: true },
             { name: '💧 Vlhkosť', value: `${c.relative_humidity_2m}%\nOblačnosť: ${c.cloud_cover}%`, inline: true },
         )
-        .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 
     if (c.precipitation > 0) {
         embed.addFields({ name: '🌧️ Zrážky', value: `${c.precipitation} mm`, inline: true });
@@ -105,17 +108,18 @@ function buildDailyForecastEmbed(data, userSettings, dayIndex = 0) {
     return new EmbedBuilder().setColor(color)
         .setTitle(`${w.emoji}  ${dayNames[date.getDay()]}, ${dateStr} — ${userSettings.city}`)
         .setDescription(`**${w.text}**`).setThumbnail(icon).addFields(...fields)
-        .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Multi-day ─────────────────────────────
 
 function buildMultiDayEmbed(data, userSettings) {
     const d = data.daily;
+    const du = data.daily_units || {};
+    const tu = du.temperature_2m_max || '°C';
     const days = d.time.length;
     const dayNames = ['Ne','Po','Ut','St','Št','Pi','So'];
 
-    // Sparkline teplôt
     const temps = [];
     for (let i = 0; i < days; i++) temps.push(d.temperature_2m_max?.[i] ?? 0);
     const spark = buildSparkline(temps);
@@ -134,14 +138,17 @@ function buildMultiDayEmbed(data, userSettings) {
     return new EmbedBuilder()
         .setColor(getColorForWeather(d.weather_code?.[0] || 0))
         .setTitle(`📅  Predpoveď na ${days} dní — ${userSettings.city}`)
-        .setDescription(`\`${spark}\` max °C\n\n${lines.join('\n')}`)
-        .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+        .setDescription(`\`${spark}\` max ${tu}\n\n${lines.join('\n')}`)
+        .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Daily summary ─────────────────────────
 
 function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
     const d = dailyData.daily;
+    const du = dailyData.daily_units || {};
+    const tu = du.temperature_2m_max || '°C';
+    const wsu = du.wind_speed_10m_max || 'km/h';
     const h = hourlyData.hourly;
     const w = getWeatherInfo(d.weather_code?.[0] ?? 0);
     const today = d.time?.[0];
@@ -186,8 +193,8 @@ function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
 
     const nameday = getTodayNameday();
     const fields = [
-        { name: '🌡️ Teploty', value: `↑ **${d.temperature_2m_max?.[0]??'?'}°C** ↓ ${d.temperature_2m_min?.[0]??'?'}°C`, inline: true },
-        { name: '💨 Vietor', value: `Max: ${d.wind_speed_10m_max?.[0]??'?'} km/h\nNárazy: ${d.wind_gusts_10m_max?.[0]??'?'} km/h`, inline: true },
+        { name: '🌡️ Teploty', value: `↑ **${d.temperature_2m_max?.[0]??'?'}${tu}** ↓ ${d.temperature_2m_min?.[0]??'?'}${tu}`, inline: true },
+        { name: '💨 Vietor', value: `Max: ${d.wind_speed_10m_max?.[0]??'?'} ${wsu}\nNárazy: ${d.wind_gusts_10m_max?.[0]??'?'} ${wsu}`, inline: true },
         { name: '🌅 Slnko', value: sunText, inline: true },
     ];
     if (nameday) fields.push({ name: '🎂 Meniny', value: nameday, inline: true });
@@ -197,7 +204,7 @@ function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
         .setTitle(`${w.emoji}  Ranný prehľad — ${userSettings.city}`)
         .setDescription(summary)
         .addFields(...fields)
-        .setFooter({ text: 'Open-Meteo • Automatická notifikácia' }).setTimestamp();
+        .setFooter({ text: '🔔 Automatická notifikácia' }).setTimestamp();
 }
 
 // ─── Air Quality ───────────────────────────
@@ -218,7 +225,7 @@ function buildAirQualityEmbed(data, userSettings) {
             { name: 'O₃', value: `${c?.ozone ?? '?'} µg/m³`, inline: true },
             { name: 'SO₂', value: `${c?.sulphur_dioxide ?? '?'} µg/m³`, inline: true },
         )
-        .setFooter({ text: 'Open-Meteo Air Quality API' }).setTimestamp();
+        .setFooter({ text: '🏔️ Kvalita vzduchu' }).setTimestamp();
 
     return embed;
 }
@@ -256,7 +263,7 @@ function buildCompareEmbed(data1, data2, city1, city2) {
         inline: false,
     });
 
-    return embed.setFooter({ text: 'Open-Meteo' }).setTimestamp();
+    return embed.setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Storm alert ───────────────────────────
@@ -276,7 +283,7 @@ function buildStormAlertEmbed(userSettings, hourlyData) {
         .setColor(COLORS.storm)
         .setTitle(`⚡  Búrkový alert — ${userSettings.city}`)
         .setDescription(`**${alerts[0].emoji} ${alerts[0].text}** sa blíži!\n\nOčakávaný čas: **${ranges}**`)
-        .setFooter({ text: 'Automatický alert • Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '⚡ Automatický alert' }).setTimestamp();
 }
 
 // ─── Sunrise/Sunset ────────────────────────
@@ -299,7 +306,7 @@ function buildSunEmbed(userSettings, dailyData, type = 'sunrise') {
                 `Západ dnes <t:${sunsetUnix}:t>\n\n` +
                 `${w.emoji} Dnes: ${w.text}, ${d.temperature_2m_max?.[0]??'?'}°/${d.temperature_2m_min?.[0]??'?'}°`
             )
-            .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+            .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
     }
     return new EmbedBuilder()
         .setColor(0x2C3E50)
@@ -308,7 +315,7 @@ function buildSunEmbed(userSettings, dailyData, type = 'sunrise') {
             `Slnko zapadá <t:${sunsetUnix}:t> (<t:${sunsetUnix}:R>)\n` +
             `Východ bol dnes <t:${sunriseUnix}:t>`
         )
-        .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Settings ──────────────────────────────
@@ -335,7 +342,7 @@ function buildSettingsEmbed(s) {
             { name: '🔔 Notifikácie', value: notifList, inline: false },
             { name: '⭐ Obľúbené', value: favList, inline: false },
         )
-        .setFooter({ text: 'Nastavenia sa ukladajú automaticky' }).setTimestamp();
+        .setFooter({ text: '⚙️ Nastavenia sa ukladajú automaticky' }).setTimestamp();
 }
 
 function buildErrorEmbed(msg) {
@@ -354,7 +361,7 @@ function buildNiceDaysEmbed(niceDays, userSettings) {
             .setTitle(`☁️  Kedy bude pekne? — ${userSettings.city}`)
             .setDescription('V najbližších 16 dňoch žiadny jasný deň bez zrážok. Drž sa!')
             .setThumbnail(getWeatherIcon(3, true))
-            .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+            .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
     }
 
     const lines = niceDays.map(d => {
@@ -372,7 +379,7 @@ function buildNiceDaysEmbed(niceDays, userSettings) {
         .setTitle(`☀️  Kedy bude pekne? — ${userSettings.city}`)
         .setDescription(`**${when}** Najbližší pekný deň: **${first.dayName} ${first.dateStr}**\n\n${lines.join('\n')}`)
         .setThumbnail(getWeatherIcon(0, true))
-        .setFooter({ text: `Nájdených ${niceDays.length} pekných dní z 16 • Open-Meteo` }).setTimestamp();
+        .setFooter({ text: `☀️ ${niceDays.length} pekných dní z 16` }).setTimestamp();
 }
 
 // ─── Helpers ───────────────────────────────
@@ -401,7 +408,7 @@ function buildSparkline(values) {
 function buildLoadingEmbed(text = 'Načítavam počasie...') {
     return new EmbedBuilder()
         .setColor(0x5865F2)
-        .setDescription(`⏳ ${text}`)
+        .setDescription(`<a:loading:1483746464122273855> ${text}`)
         ;
 }
 
@@ -423,7 +430,7 @@ function buildHelpEmbed() {
             { name: '📢 /kanal', value: 'Nastav kanál pre automatické ranné počasie (admin)', inline: true },
             { name: '─── Typy notifikácií ───', value: '`denne` — ranný prehľad celého dňa\n`vystrahy` — len ak hrozia silné javy\n`burky` — real-time alert každých 15 min\n`vychod` / `zapad` — slnko notifikácie', inline: false },
         )
-        .setFooter({ text: 'Open-Meteo API • Free, bez API kľúča' }).setTimestamp();
+        .setFooter({ text: '⛅ Nimbus Weather Bot' }).setTimestamp();
 }
 
 // ─── Poll embed ────────────────────────────
@@ -474,7 +481,7 @@ function buildPollEmbed(dailyData, userSettings, dayOffset = 0) {
             `${verdictEmoji} **${verdict}**\n\n` +
             `Hlasuj reakciami 👍 👎 🤷`
         )
-        .setFooter({ text: `${dayName} ${dateStr} • Open-Meteo` }).setTimestamp();
+        .setFooter({ text: `🗳️ ${dayName} ${dateStr}` }).setTimestamp();
 }
 
 // ─── Multi-day poll ────────────────────────
@@ -517,7 +524,7 @@ function buildMultiPollEmbed(dailyData, userSettings, dayOffsets) {
             `\n\n⭐ **Odporúčanie:** ${numberEmojis[bestIdx]} vyzerá najlepšie!\n\n` +
             `Hlasuj reakciou za deň ktorý ti vyhovuje:`
         )
-        .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Server channel embed ──────────────────
@@ -560,7 +567,7 @@ function buildServerWeatherEmbed(dailyData, hourlyData, city) {
             { name: '🌧️ Zrážky', value: `${d.precipitation_sum?.[0]??0} mm | ${d.precipitation_probability_max?.[0]??'?'}%`, inline: true },
             { name: '🌅 Slnko', value: sunText, inline: true },
         )
-        .setFooter({ text: 'Automatický ranný post • Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '📢 Ranný post' }).setTimestamp();
 
     if (hourlyPreview) {
         embed.addFields({ name: '🕐 Priebeh dňa', value: hourlyPreview, inline: false });
@@ -595,7 +602,7 @@ function buildLunarEmbed(lunarDays) {
         .setColor(0x2C3E50)
         .setTitle(`${today.emoji}  Lunárny kalendár`)
         .setDescription(`Dnes: **${today.name}** (deň ${today.synodicDay}/30)${highlights}\n\n${lines.join('\n')}`)
-        .setFooter({ text: 'Fázy mesiaca • astronomický výpočet' }).setTimestamp();
+        .setFooter({ text: '🌙 Lunárny kalendár' }).setTimestamp();
 }
 
 // ─── Outfit odporúčanie ────────────────────
@@ -614,7 +621,7 @@ function buildOutfitEmbed(outfit, userSettings) {
             { name: '👟 Obuv', value: outfit.footwear, inline: true },
             { name: '🎒 Doplnky', value: accText, inline: true },
         )
-        .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+        .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Dopravné varovanie ────────────────────
@@ -625,7 +632,7 @@ function buildTrafficEmbed(warnings, userSettings) {
             .setColor(0x57F287)
             .setTitle(`✅  Doprava OK — ${userSettings.city}`)
             .setDescription('Žiadne výstrahy — cesty by mali byť v poriadku.')
-            .setFooter({ text: 'Open-Meteo' }).setTimestamp();
+            .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
     }
 
     const levelColors = { 1: 0xFEE75C, 2: 0xF39C12, 3: 0xED4245 };
@@ -638,7 +645,7 @@ function buildTrafficEmbed(warnings, userSettings) {
         .setColor(levelColors[maxLevel] || 0xED4245)
         .setTitle(`🚗  Dopravné varovania — ${userSettings.city}`)
         .setDescription(lines.join('\n\n'))
-        .setFooter({ text: `${warnings.length} varovanie/a • Open-Meteo` }).setTimestamp();
+        .setFooter({ text: `🚗 ${warnings.length} varovanie/a` }).setTimestamp();
 }
 
 module.exports = {

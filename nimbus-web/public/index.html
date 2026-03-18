@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nimbus ⛅ Počasie</title>
+    <!-- Preconnect to external origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.open-meteo.com">
+    <link rel="preconnect" href="https://cdn.discordapp.com">
+    <!-- Fonts with display=swap so text renders immediately in fallback -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Preload critical assets -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="app.js" as="script">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══ SKY SCENE ═══ -->
+<div class="sky" id="sky">
+    <div class="sky-gradient" id="skyGradient"></div>
+
+    <!-- Stars (night only) -->
+    <div class="stars" id="stars">
+        <div class="star"></div><div class="star"></div><div class="star"></div>
+        <div class="star"></div><div class="star"></div><div class="star"></div>
+        <div class="star"></div><div class="star"></div><div class="star"></div>
+        <div class="star"></div><div class="star"></div><div class="star"></div>
+        <div class="star"></div><div class="star"></div><div class="star"></div>
+        <div class="star"></div><div class="star"></div><div class="star"></div>
+        <div class="star"></div><div class="star"></div>
+    </div>
+
+    <!-- Sun -->
+    <div class="sun-container" id="sunContainer">
+        <div class="sun" id="sun">
+            <div class="sun-core"></div>
+            <div class="sun-ray"></div><div class="sun-ray"></div>
+            <div class="sun-ray"></div><div class="sun-ray"></div>
+            <div class="sun-ray"></div><div class="sun-ray"></div>
+            <div class="sun-ray"></div><div class="sun-ray"></div>
+            <div class="sun-glow"></div>
+        </div>
+    </div>
+
+    <!-- Moon -->
+    <div class="moon-container" id="moonContainer">
+        <div class="moon" id="moon">
+            <div class="moon-glow"></div>
+            <div class="crater"></div>
+            <div class="crater small"></div>
+            <div class="crater tiny"></div>
+        </div>
+    </div>
+
+    <!-- Clouds -->
+    <div class="clouds-layer" id="cloudsLayer">
+        <div class="cloud cloud-1" id="cloud1">
+            <div class="cloud-body"></div>
+            <div class="cloud-puff p1"></div>
+            <div class="cloud-puff p2"></div>
+            <div class="cloud-puff p3"></div>
+            <div class="cloud-shine"></div>
+        </div>
+        <div class="cloud cloud-2" id="cloud2">
+            <div class="cloud-body"></div>
+            <div class="cloud-puff p1"></div>
+            <div class="cloud-puff p2"></div>
+            <div class="cloud-shine"></div>
+        </div>
+        <div class="cloud cloud-3" id="cloud3">
+            <div class="cloud-body"></div>
+            <div class="cloud-puff p1"></div>
+            <div class="cloud-puff p2"></div>
+            <div class="cloud-puff p3"></div>
+            <div class="cloud-shine"></div>
+        </div>
+        <div class="cloud cloud-4" id="cloud4">
+            <div class="cloud-body"></div>
+            <div class="cloud-puff p1"></div>
+            <div class="cloud-puff p2"></div>
+            <div class="cloud-shine"></div>
+        </div>
+    </div>
+
+    <!-- Rain + Snow rendered on canvas — freezes perfectly in all browsers -->
+    <canvas id="weatherCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;"></canvas>
+
+    <!-- Lightning -->
+    <div class="lightning" id="lightning"></div>
+
+    <!-- Horizon glow -->
+    <div class="horizon-glow" id="horizonGlow"></div>
+
+    <!-- Ground -->
+    <div class="ground"></div>
+</div>
+
+<!-- ═══ GLASS PANEL ═══ -->
+<div class="panel-wrapper">
+    <div class="glass-panel" id="glassPanel">
+
+        <!-- Header -->
+        <div class="panel-header">
+            <div class="logo">
+                <span class="logo-icon">⛅</span>
+                <span class="logo-text">Nimbus</span>
+            </div>
+            <div class="header-time" id="headerTime"></div>
+        </div>
+
+        <!-- Weather display -->
+        <div class="weather-hero" id="weatherHero">
+            <div class="weather-loading" id="weatherLoading">
+                <div class="loading-spinner"></div>
+                <p>Načítavam počasie…</p>
+            </div>
+
+            <div class="weather-data hidden" id="weatherData">
+                <!-- Tabs -->
+                <div class="weather-tabs" id="weatherTabs">
+                    <button class="weather-tab active" data-tab="current">🌡️ Teraz</button>
+                    <button class="weather-tab" data-tab="today">📋 Dnes</button>
+                    <button class="weather-tab" data-tab="7d">📆 7 dní</button>
+                    <button class="weather-tab" data-tab="14d">📅 14 dní</button>
+                    <button class="weather-tab" data-tab="air">🏔️ Vzduch</button>
+                    <button class="weather-tab" data-tab="nice">☀️ Pekne?</button>
+                    <button class="weather-tab" data-tab="outfit">👔 Obliecť</button>
+                    <button class="weather-tab" data-tab="traffic">🚗 Doprava</button>
+                </div>
+
+                <!-- Tab content area -->
+                <div class="weather-tab-content" id="weatherTabContent">
+
+                    <!-- Current (default) -->
+                    <div class="tab-pane active" id="tabCurrent">
+                        <div class="weather-icon-big" id="weatherIconBig">☀️</div>
+                        <div class="weather-temp" id="weatherTemp">--°C</div>
+                        <div class="weather-desc" id="weatherDesc">Loading…</div>
+                        <div class="weather-city" id="weatherCity">--</div>
+                        <div class="weather-details">
+                            <div class="detail-chip">
+                                <span class="chip-icon">💧</span>
+                                <span class="chip-label">Vlhkosť</span>
+                                <span class="chip-value" id="detailHumidity">--%</span>
+                            </div>
+                            <div class="detail-chip">
+                                <span class="chip-icon">💨</span>
+                                <span class="chip-label">Vietor</span>
+                                <span class="chip-value" id="detailWind">-- km/h</span>
+                            </div>
+                            <div class="detail-chip">
+                                <span class="chip-icon">🌡️</span>
+                                <span class="chip-label">Pocitová</span>
+                                <span class="chip-value" id="detailFeels">--°C</span>
+                            </div>
+                            <div class="detail-chip">
+                                <span class="chip-icon">☁️</span>
+                                <span class="chip-label">Oblačnosť</span>
+                                <span class="chip-value" id="detailCloud">--%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today -->
+                    <div class="tab-pane hidden" id="tabToday">
+                        <div class="tab-loading hidden" id="loadingToday"><div class="loading-spinner small"></div></div>
+                        <div class="tab-scroll" id="contentToday"></div>
+                    </div>
+
+                    <!-- 7 Days -->
+                    <div class="tab-pane hidden" id="tab7d">
+                        <div class="tab-loading hidden" id="loading7d"><div class="loading-spinner small"></div></div>
+                        <div class="tab-scroll" id="content7d"></div>
+                    </div>
+
+                    <!-- 14 Days -->
+                    <div class="tab-pane hidden" id="tab14d">
+                        <div class="tab-loading hidden" id="loading14d"><div class="loading-spinner small"></div></div>
+                        <div class="tab-scroll" id="content14d"></div>
+                    </div>
+
+                    <!-- Air Quality -->
+                    <div class="tab-pane hidden" id="tabAir">
+                        <div class="tab-loading hidden" id="loadingAir"><div class="loading-spinner small"></div></div>
+                        <div id="contentAir"></div>
+                    </div>
+
+                    <!-- Nice Days -->
+                    <div class="tab-pane hidden" id="tabNice">
+                        <div class="tab-loading hidden" id="loadingNice"><div class="loading-spinner small"></div></div>
+                        <div class="tab-scroll" id="contentNice"></div>
+                    </div>
+
+                    <!-- Outfit -->
+                    <div class="tab-pane hidden" id="tabOutfit">
+                        <div class="tab-loading hidden" id="loadingOutfit"><div class="loading-spinner small"></div></div>
+                        <div id="contentOutfit"></div>
+                    </div>
+
+                    <!-- Traffic -->
+                    <div class="tab-pane hidden" id="tabTraffic">
+                        <div class="tab-loading hidden" id="loadingTraffic"><div class="loading-spinner small"></div></div>
+                        <div id="contentTraffic"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- City search -->
+        <div class="city-search-section">
+            <div class="section-label">📍 Lokalita</div>
+            <div class="search-row">
+                <input type="text" class="glass-input" id="cityInput" placeholder="Hľadaj mesto…" autocomplete="off">
+                <button class="glass-btn primary" id="searchBtn">Hľadaj</button>
+            </div>
+            <div class="city-results hidden" id="cityResults"></div>
+        </div>
+
+        <!-- Bot config panel -->
+        <div class="config-section">
+            <div class="section-label">🤖 Nastavenia bota</div>
+
+            <!-- Not logged in -->
+            <div id="authLogin">
+                <div class="auth-prompt">
+                    <p class="auth-desc">Prihlás sa cez Discord a spravuj nastavenia bota.</p>
+                    <a href="/auth/login" class="discord-login-btn">
+                        <svg width="20" height="20" viewBox="0 0 71 55" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M60.1 4.9A58.6 58.6 0 0 0 45.6.7a40.3 40.3 0 0 0-1.8 3.6 54.2 54.2 0 0 0-16.2 0A38.6 38.6 0 0 0 25.8.7 58.5 58.5 0 0 0 11.2 4.9C1.6 19.2-.9 33.1.3 46.8a59 59 0 0 0 17.9 9 43.3 43.3 0 0 0 3.8-6.1 38.3 38.3 0 0 1-6-2.8c.5-.4 1-.7 1.5-1.1a42 42 0 0 0 35.8 0l1.5 1.1a38.4 38.4 0 0 1-6 2.9 43 43 0 0 0 3.7 6A58.8 58.8 0 0 0 70.7 46.8C72.1 31 68.2 17.2 60.1 4.9ZM23.7 38.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.2 6.4-7.2 6.5 3.2 6.4 7.2c0 3.9-2.8 7.1-6.4 7.1Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.2 6.4-7.2 6.5 3.2 6.4 7.2c0 3.9-2.8 7.1-6.4 7.1Z" fill="currentColor"/></svg>
+                        Prihlásiť sa cez Discord
+                    </a>
+                    <div class="auth-error hidden" id="authError"></div>
+                </div>
+            </div>
+
+            <!-- Logged in -->
+            <div id="authUser" class="hidden">
+                <div class="user-profile">
+                    <img class="user-avatar" id="userAvatar" src="" alt="">
+                    <div class="user-info">
+                        <div class="user-name" id="userName"></div>
+                        <div class="user-tag" id="userTag"></div>
+                    </div>
+                    <button class="glass-btn small danger" id="logoutBtn">Odhlásiť sa</button>
+                </div>
+            </div>
+
+            <div class="user-config hidden" id="userConfig">
+
+                <div class="config-grid">
+                    <!-- Units -->
+                    <div class="config-card">
+                        <div class="config-card-title">🌡️ Teplota</div>
+                        <div class="toggle-group" id="tempToggle">
+                            <button class="toggle-btn active" data-value="celsius">°C</button>
+                            <button class="toggle-btn" data-value="fahrenheit">°F</button>
+                        </div>
+                    </div>
+                    <div class="config-card">
+                        <div class="config-card-title">💨 Rýchlosť vetra</div>
+                        <div class="toggle-group" id="windToggle">
+                            <button class="toggle-btn active" data-value="kmh">km/h</button>
+                            <button class="toggle-btn" data-value="ms">m/s</button>
+                            <button class="toggle-btn" data-value="mph">mph</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Favorites -->
+                <div class="notif-section">
+                    <div class="notif-header">
+                        <span>⭐ Obľúbené mestá</span>
+                        <button class="glass-btn small" id="addFavBtn">+ Pridať</button>
+                    </div>
+                    <div class="fav-list" id="favList">
+                        <div class="notif-empty">Žiadne obľúbené mestá.</div>
+                    </div>
+                    <div class="add-fav-form hidden" id="addFavForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Názov mesta</label>
+                                <div class="search-row">
+                                    <input type="text" class="glass-input small" id="favCityInput" placeholder="napr. Viedeň">
+                                    <button class="glass-btn small" id="favSearchBtn">Hľadaj</button>
+                                </div>
+                                <div class="city-results hidden" id="favCityResults"></div>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="glass-btn" id="cancelFavBtn">Zrušiť</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div class="notif-section">
+                    <div class="notif-header">
+                        <span>🔔 Notifikácie</span>
+                        <button class="glass-btn small" id="addNotifBtn">+ Pridať</button>
+                    </div>
+                    <div class="notif-list" id="notifList">
+                        <div class="notif-empty">Zatiaľ žiadne notifikácie.</div>
+                    </div>
+                </div>
+
+                <!-- Notification wizard (multi-step) -->
+                <div class="add-notif-form hidden" id="addNotifForm">
+
+                    <!-- Step 1: Type -->
+                    <div class="wizard-step" id="wizStep1">
+                        <div class="config-card-title">🔔 Krok 1 — Typ notifikácie</div>
+                        <div class="notif-type-grid" id="notifTypeGrid"></div>
+                        <div class="form-actions" style="margin-top:10px">
+                            <button class="glass-btn" id="cancelNotifBtn">Zrušiť</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2a: Scheduled vs Instant (for daily/severe) -->
+                    <div class="wizard-step hidden" id="wizStep2Mode">
+                        <div class="config-card-title" id="wizStep2ModeTitle">⏰ Krok 2 — Kedy?</div>
+                        <div class="toggle-group" style="margin-bottom:12px">
+                            <button class="toggle-btn active" id="modeTimedBtn" data-mode="timed">⏰ V konkrétny čas</button>
+                            <button class="toggle-btn" id="modeInstantBtn" data-mode="instant">⚡ Okamžite pri detekcii</button>
+                        </div>
+                        <div id="timeInputRow">
+                            <div class="form-group">
+                                <label>Čas (HH:MM)</label>
+                                <input type="text" class="glass-input small" id="notifTime" placeholder="07:00" maxlength="5">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:10px">
+                            <label>Kanál</label>
+                            <div class="channel-picker" id="channelPickerMode"></div>
+                        </div>
+                        <div class="form-actions" style="margin-top:12px">
+                            <button class="glass-btn primary" id="saveNotifBtn">Uložiť notifikáciu</button>
+                            <button class="glass-btn" id="wizBackBtn2Mode">← Späť</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2b: Instant-only types (rain_now, storm, extreme_temp) -->
+                    <div class="wizard-step hidden" id="wizStep2Instant">
+                        <div class="config-card-title" id="wizStep2InstantTitle">⚡ Krok 2 — Kanál</div>
+                        <div class="form-group">
+                            <label>Kanál</label>
+                            <div class="channel-picker" id="channelPickerInstant"></div>
+                        </div>
+                        <div class="form-actions" style="margin-top:12px">
+                            <button class="glass-btn primary" id="saveNotifInstantBtn">Uložiť notifikáciu</button>
+                            <button class="glass-btn" id="wizBackBtn2Instant">← Späť</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2c: Sunrise/Sunset offset -->
+                    <div class="wizard-step hidden" id="wizStep2Offset">
+                        <div class="config-card-title" id="wizStep2OffsetTitle">⏱️ Krok 2 — Ako skoro?</div>
+                        <div class="form-group" style="margin-bottom:10px">
+                            <label>Minút pred</label>
+                            <div class="toggle-group" id="offsetToggle">
+                                <button class="toggle-btn active" data-value="0">Presne v čase</button>
+                                <button class="toggle-btn" data-value="5">5 min</button>
+                                <button class="toggle-btn" data-value="10">10 min</button>
+                                <button class="toggle-btn" data-value="15">15 min</button>
+                                <button class="toggle-btn" data-value="30">30 min</button>
+                                <button class="toggle-btn" data-value="60">60 min</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Kanál</label>
+                            <div class="channel-picker" id="channelPickerOffset"></div>
+                        </div>
+                        <div class="form-actions" style="margin-top:12px">
+                            <button class="glass-btn primary" id="saveNotifOffsetBtn">Uložiť notifikáciu</button>
+                            <button class="glass-btn" id="wizBackBtn2Offset">← Späť</button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2d: Weather change multi-select -->
+                    <div class="wizard-step hidden" id="wizStep2Changes">
+                        <div class="config-card-title">🔄 Krok 2 — Sledovať zmeny</div>
+                        <div class="change-grid" id="changeGrid"></div>
+                        <div class="form-group" style="margin-top:10px">
+                            <label>Kanál</label>
+                            <div class="channel-picker" id="channelPickerChanges"></div>
+                        </div>
+                        <div class="form-actions" style="margin-top:12px">
+                            <button class="glass-btn primary" id="saveNotifChangesBtn">Uložiť notifikáciu</button>
+                            <button class="glass-btn" id="wizBackBtn2Changes">← Späť</button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Save settings -->
+                <div class="save-row">
+                    <button class="glass-btn primary wide" id="saveSettingsBtn">💾 Uložiť nastavenia</button>
+                    <button class="glass-btn danger" id="deleteUserBtn">🗑️ Vymazať nastavenia</button>
+                </div>
+
+                <div class="save-status hidden" id="saveStatus"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="panel-footer">
+            <span>Powered by <a href="https://open-meteo.com" target="_blank">Open-Meteo</a></span>
+            <span class="dot">·</span>
+            <span>Nimbus v1.0</span>
+        </div>
+
+    </div>
+</div>
+
+<!-- Add Notification Modal -->
+<div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal-box">
+        <div class="modal-title">Add Notification</div>
+        <div class="modal-content" id="modalContent"></div>
+        <div class="modal-actions" id="modalActions"></div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

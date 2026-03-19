@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { getWeatherInfo, getWindDirection, getAqiInfo, getWeatherIcon, getWeatherGif, getMoonPhase, getUvInfo } = require('./weather');
+const { getWeatherInfo, getWindDirection, getAqiInfo, getWeatherIcon, getWeatherGif, getMoonPhase, getUvInfo, getPressureInfo } = require('./weather');
 const { getTodayNameday } = require('./namedays');
 
 const COLORS = {
@@ -42,7 +42,7 @@ function getColorForWeather(code, isDay = true, temp = null) {
 
 // ─── Aktuálne počasie ──────────────────────
 
-function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
+function buildCurrentWeatherEmbed(data, userSettings, dailyData = null, hourlyData = null) {
     const c = data.current;
     const cu = data.current_units || {};
     const tu = cu.temperature_2m || '°C';
@@ -59,11 +59,19 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
         .setDescription(`**${w.text}**`)
         .setThumbnail(icon)
         .addFields(
-            { name: '🌡️ Teplota', value: `**${c.temperature_2m}${tu}**\nPocitová: ${c.apparent_temperature}${tu}`, inline: true },
-            { name: '💨 Vietor', value: `${c.wind_speed_10m} ${wu} ${wind.sk}\nNárazy: ${c.wind_gusts_10m} ${wu}`, inline: true },
-            { name: '💧 Vlhkosť', value: `${c.relative_humidity_2m}%\nOblačnosť: ${c.cloud_cover}%`, inline: true },
+            { name: '🌡️ Teplota', value: `**${c.temperature_2m}${tu}**`, inline: true },
+            { name: '🤒 Pocitova', value: `${c.apparent_temperature}${tu}`, inline: true },
+            { name: '💨 Vietor', value: `${c.wind_speed_10m} ${wu} ${wind.sk}\nNarazy: ${c.wind_gusts_10m} ${wu}`, inline: true },
+            { name: '💧 Vlhkost', value: `${c.relative_humidity_2m}%`, inline: true },
+            { name: '☁️ Oblacnost', value: `${c.cloud_cover}%`, inline: true },
         )
         .setFooter({ text: '⛅ Nimbus' }).setTimestamp();
+
+    // Tlak vzduchu
+    const pressInfo = getPressureInfo(c.surface_pressure, hourlyData);
+    if (pressInfo) {
+        embed.addFields({ name: `${pressInfo.trendEmoji} Tlak`, value: `${pressInfo.hpa} hPa${pressInfo.trend ? ` (${pressInfo.trend})` : ''}`, inline: true });
+    }
 
     if (c.precipitation > 0) {
         embed.addFields({ name: '🌧️ Zrážky', value: `${c.precipitation} mm`, inline: true });
@@ -132,7 +140,7 @@ function buildDailyForecastEmbed(data, userSettings, dayIndex = 0) {
     const uv = d.uv_index_max?.[dayIndex];
 
     const fields = [
-        { name: '🌡️ Teplota', value: `↑ **${d.temperature_2m_max?.[dayIndex]??'?'}°C** ↓ ${d.temperature_2m_min?.[dayIndex]??'?'}°C`, inline: true },
+        { name: '🌡️ Teplota', value: `<:UP:1484151541265862676> **${d.temperature_2m_max?.[dayIndex]??'?'}°C** <:DOWN:1484151542490730496> ${d.temperature_2m_min?.[dayIndex]??'?'}°C`, inline: true },
         { name: '💨 Vietor', value: `Max: ${d.wind_speed_10m_max?.[dayIndex]??'?'} km/h\nNárazy: ${d.wind_gusts_10m_max?.[dayIndex]??'?'} km/h`, inline: true },
         { name: '🌧️ Zrážky', value: `${d.precipitation_sum?.[dayIndex]??0} mm | ${d.precipitation_probability_max?.[dayIndex]??'?'}%`, inline: true },
         { name: '🌅 Slnko', value: sunText, inline: true },
@@ -230,7 +238,7 @@ function buildDailySummaryEmbed(hourlyData, dailyData, userSettings, isNotificat
 
     const disp = userSettings?.display || {};
     const fields = [
-        { name: '🌡️ Teploty', value: `↑ **${d.temperature_2m_max?.[0]??'?'}${tu}** ↓ ${d.temperature_2m_min?.[0]??'?'}${tu}`, inline: true },
+        { name: '🌡️ Teploty', value: `<:UP:1484151541265862676> **${d.temperature_2m_max?.[0]??'?'}${tu}** <:DOWN:1484151542490730496> ${d.temperature_2m_min?.[0]??'?'}${tu}`, inline: true },
         { name: '💨 Vietor', value: `Max: ${d.wind_speed_10m_max?.[0]??'?'} ${wsu}\nNárazy: ${d.wind_gusts_10m_max?.[0]??'?'} ${wsu}`, inline: true },
     ];
     if (disp.sun !== false) fields.push({ name: '🌅 Slnko', value: sunText, inline: true });
@@ -282,34 +290,68 @@ function buildAirQualityEmbed(data, userSettings) {
 
 function buildCompareEmbed(data1, data2, city1, city2) {
     const c1 = data1.current, c2 = data2.current;
+    const cu1 = data1.current_units || {}, cu2 = data2.current_units || {};
+    const tu = cu1.temperature_2m || '°C';
+    const wu = cu1.wind_speed_10m || 'km/h';
     const w1 = getWeatherInfo(c1.weather_code), w2 = getWeatherInfo(c2.weather_code);
+    const icon1 = getWeatherGif(c1.weather_code, c1.is_day === 1);
+    const icon2 = getWeatherGif(c2.weather_code, c2.is_day === 1);
+
+    const diff = c1.temperature_2m - c2.temperature_2m;
+    const warmer = diff > 0 ? city1 : diff < 0 ? city2 : null;
+    const absDiff = Math.abs(diff).toFixed(1);
+
+    // Farba podla priemeru oboch teplôt
+    const avgTemp = (c1.temperature_2m + c2.temperature_2m) / 2;
+    const color = getColorForTemp(avgTemp);
+
+    // Sipky pre porovnanie
+    const tempArrow = (a, b) => a > b ? ' <:UP:1484151541265862676>' : a < b ? ' <:DOWN:1484151542490730496>' : '';
+    const windArrow = (a, b) => a > b ? ' <:UP:1484151541265862676>' : a < b ? ' <:DOWN:1484151542490730496>' : '';
 
     const embed = new EmbedBuilder()
-        .setColor(COLORS.info)
-        .setTitle(`🌍  ${city1} vs ${city2}`)
+        .setColor(color)
+        .setTitle(`🌍  ${city1}  vs  ${city2}`)
+        .setThumbnail(icon1)
         .addFields(
-            { name: `${w1.emoji} ${city1}`, value: [
-                `🌡️ **${c1.temperature_2m}°C** (pocit. ${c1.apparent_temperature}°C)`,
-                `${w1.text}`,
-                `💨 ${c1.wind_speed_10m} km/h | 💧 ${c1.relative_humidity_2m}%`,
-                `☁️ ${c1.cloud_cover}% | 🌧️ ${c1.precipitation} mm`,
-            ].join('\n'), inline: true },
-            { name: `${w2.emoji} ${city2}`, value: [
-                `🌡️ **${c2.temperature_2m}°C** (pocit. ${c2.apparent_temperature}°C)`,
-                `${w2.text}`,
-                `💨 ${c2.wind_speed_10m} km/h | 💧 ${c2.relative_humidity_2m}%`,
-                `☁️ ${c2.cloud_cover}% | 🌧️ ${c2.precipitation} mm`,
-            ].join('\n'), inline: true },
+            { name: '─', value: `**${w1.emoji} ${city1}**`, inline: true },
+            { name: '📊', value: '**Rozdiel**', inline: true },
+            { name: '─', value: `**${w2.emoji} ${city2}**`, inline: true },
+
+            { name: '🌡️ Teplota', value: `**${c1.temperature_2m}${tu}**${tempArrow(c1.temperature_2m, c2.temperature_2m)}`, inline: true },
+            { name: '↔️', value: `${absDiff}°`, inline: true },
+            { name: '🌡️ Teplota', value: `**${c2.temperature_2m}${tu}**${tempArrow(c2.temperature_2m, c1.temperature_2m)}`, inline: true },
+
+            { name: '🤒 Pocitova', value: `${c1.apparent_temperature}${tu}`, inline: true },
+            { name: '↔️', value: `${Math.abs(c1.apparent_temperature - c2.apparent_temperature).toFixed(1)}°`, inline: true },
+            { name: '🤒 Pocitova', value: `${c2.apparent_temperature}${tu}`, inline: true },
+
+            { name: '💨 Vietor', value: `${c1.wind_speed_10m} ${wu}${windArrow(c1.wind_speed_10m, c2.wind_speed_10m)}`, inline: true },
+            { name: '↔️', value: `${Math.abs(c1.wind_speed_10m - c2.wind_speed_10m)} ${wu}`, inline: true },
+            { name: '💨 Vietor', value: `${c2.wind_speed_10m} ${wu}${windArrow(c2.wind_speed_10m, c1.wind_speed_10m)}`, inline: true },
+
+            { name: '💧 Vlhkost', value: `${c1.relative_humidity_2m}%`, inline: true },
+            { name: '☁️', value: `${c1.cloud_cover}% vs ${c2.cloud_cover}%`, inline: true },
+            { name: '💧 Vlhkost', value: `${c2.relative_humidity_2m}%`, inline: true },
         );
 
-    // Rozdiel
-    const diff = (c1.temperature_2m - c2.temperature_2m).toFixed(1);
-    const warmer = diff > 0 ? city1 : city2;
-    embed.addFields({
-        name: '📊 Rozdiel',
-        value: `${warmer} je o **${Math.abs(diff)}°C** teplejšie`,
-        inline: false,
-    });
+    // Verdict
+    let verdict = '';
+    if (warmer) {
+        verdict += `🌡️ **${warmer}** je o ${absDiff}° teplejsie`;
+    } else {
+        verdict += '🌡️ Rovnaka teplota';
+    }
+    if (c1.wind_speed_10m !== c2.wind_speed_10m) {
+        const calmer = c1.wind_speed_10m < c2.wind_speed_10m ? city1 : city2;
+        verdict += `\n💨 V **${calmer}** je menej veterno`;
+    }
+    if (c1.precipitation > 0 || c2.precipitation > 0) {
+        if (c1.precipitation > c2.precipitation) verdict += `\n🌧️ V **${city1}** prave prsi (${c1.precipitation} mm)`;
+        else if (c2.precipitation > c1.precipitation) verdict += `\n🌧️ V **${city2}** prave prsi (${c2.precipitation} mm)`;
+    }
+
+    embed.addFields({ name: '📋 Zhrnutie', value: verdict, inline: false });
 
     return embed.setFooter({ text: '⛅ Nimbus' }).setTimestamp();
 }
@@ -482,7 +524,7 @@ function buildHourlyGraph(hourlyData, today) {
         }
     }
 
-    return `\`${spark}\` ↓${Math.round(min)}° ↑${Math.round(max)}°\n${keyPoints.join(' · ')}`;
+    return `\`${spark}\` <:DOWN:1484151542490730496>${Math.round(min)}° <:UP:1484151541265862676>${Math.round(max)}°\n${keyPoints.join(' · ')}`;
 }
 
 // ─── Loading embed ─────────────────────────
@@ -689,7 +731,7 @@ function buildServerWeatherEmbed(dailyData, hourlyData, city) {
         .setThumbnail(icon)
         .setDescription(`**${w.text}**`)
         .addFields(
-            { name: '🌡️ Teploty', value: `↑ **${d.temperature_2m_max?.[0]??'?'}°C** ↓ ${d.temperature_2m_min?.[0]??'?'}°C`, inline: true },
+            { name: '🌡️ Teploty', value: `<:UP:1484151541265862676> **${d.temperature_2m_max?.[0]??'?'}°C** <:DOWN:1484151542490730496> ${d.temperature_2m_min?.[0]??'?'}°C`, inline: true },
             { name: '🌧️ Zrážky', value: `${d.precipitation_sum?.[0]??0} mm | ${d.precipitation_probability_max?.[0]??'?'}%`, inline: true },
             { name: '🌅 Slnko', value: sunText, inline: true },
         )
@@ -815,8 +857,8 @@ function buildHistoryEmbed(dailyData, historical, userSettings) {
         .setTitle(`📊  Dnes vs priemer — ${userSettings.city}`)
         .setDescription(`**${verdict}**`)
         .addFields(
-            { name: '🌡️ Dnes', value: `↑ **${todayMax}${tu}** ↓ ${todayMin}${tu}`, inline: true },
-            { name: `📈 Priemer (${historical.count} rokov)`, value: `↑ **${historical.avgMax}${tu}** ↓ ${historical.avgMin}${tu}`, inline: true },
+            { name: '🌡️ Dnes', value: `<:UP:1484151541265862676> **${todayMax}${tu}** <:DOWN:1484151542490730496> ${todayMin}${tu}`, inline: true },
+            { name: `📈 Priemer (${historical.count} rokov)`, value: `<:UP:1484151541265862676> **${historical.avgMax}${tu}** <:DOWN:1484151542490730496> ${historical.avgMin}${tu}`, inline: true },
             { name: '📊 Rozdiel', value: `Max: **${diffMaxStr}°**\nMin: **${diffMinStr}°**`, inline: true },
             { name: '📅 Po rokoch', value: `\`\`\`\n${yearLines}\n\`\`\``, inline: false },
         )
@@ -830,4 +872,72 @@ module.exports = {
     buildNiceDaysEmbed, buildErrorEmbed, buildSuccessEmbed,
     buildLoadingEmbed, buildHelpEmbed, buildPollEmbed, buildMultiPollEmbed, buildServerWeatherEmbed,
     buildLunarEmbed, buildOutfitEmbed, buildTrafficEmbed, buildHistoryEmbed,
+    buildHourlyPointEmbed,
 };
+
+function buildHourlyPointEmbed(hourlyData, targetHour, userSettings) {
+    const h = hourlyData.hourly;
+    const hu = hourlyData.hourly_units || {};
+    const tu = hu.temperature_2m || '°C';
+    const wu = hu.wind_speed_10m || 'km/h';
+
+    if (!h?.time) return buildErrorEmbed('Hodinove data nie su dostupne.');
+
+    // Najdi najblizsi matching hour
+    let idx = -1;
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    // Skus dnes
+    for (let i = 0; i < h.time.length; i++) {
+        if (h.time[i]?.startsWith(todayStr) && new Date(h.time[i]).getHours() === targetHour) {
+            idx = i; break;
+        }
+    }
+    // Ak hodina uz presla, skus zajtra
+    if (idx === -1 || new Date(h.time[idx]) < now) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tmrStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
+        for (let i = 0; i < h.time.length; i++) {
+            if (h.time[i]?.startsWith(tmrStr) && new Date(h.time[i]).getHours() === targetHour) {
+                idx = i; break;
+            }
+        }
+    }
+
+    if (idx === -1) return buildErrorEmbed(`Data pre ${targetHour}:00 nie su dostupne.`);
+
+    const time = new Date(h.time[idx]);
+    const unix = Math.floor(time.getTime() / 1000);
+    const temp = h.temperature_2m?.[idx];
+    const apparent = h.apparent_temperature?.[idx];
+    const code = h.weather_code?.[idx] ?? 0;
+    const w = getWeatherInfo(code);
+    const icon = getWeatherGif(code, h.is_day?.[idx] === 1);
+    const precip = h.precipitation_probability?.[idx];
+    const windSpeed = h.wind_speed_10m?.[idx];
+    const gusts = h.wind_gusts_10m?.[idx];
+    const humidity = h.relative_humidity_2m?.[idx];
+    const clouds = h.cloud_cover?.[idx];
+    const pressure = h.surface_pressure?.[idx];
+
+    const embed = new EmbedBuilder()
+        .setColor(getColorForTemp(temp))
+        .setTitle(`${w.emoji}  ${userSettings.city} — <t:${unix}:t> (<t:${unix}:R>)`)
+        .setDescription(`**${w.text}**`)
+        .setThumbnail(icon)
+        .addFields(
+            { name: '🌡️ Teplota', value: `**${temp}${tu}**`, inline: true },
+            { name: '🤒 Pocitova', value: `${apparent}${tu}`, inline: true },
+            { name: '💨 Vietor', value: `${windSpeed} ${wu}\nNarazy: ${gusts} ${wu}`, inline: true },
+            { name: '💧 Vlhkost', value: `${humidity}%`, inline: true },
+            { name: '☁️ Oblacnost', value: `${clouds}%`, inline: true },
+            { name: '🌧️ Zrazky', value: `${precip}%`, inline: true },
+        );
+
+    if (pressure != null) {
+        embed.addFields({ name: '📊 Tlak', value: `${Math.round(pressure)} hPa`, inline: true });
+    }
+
+    return embed.setFooter({ text: '⛅ Nimbus' }).setTimestamp();
+}

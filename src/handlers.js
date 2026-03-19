@@ -150,6 +150,22 @@ async function handlePocasie(interaction) {
     await interaction.editReply({ embeds: [embeds.buildLoadingEmbed()] }).catch(() => {});
     const mesto1 = interaction.options.getString('mesto');
     const mesto2 = interaction.options.getString('mesto2');
+    const targetHour = interaction.options.getInteger('o');
+
+    // Predpoved na konkretnu hodinu
+    if (targetHour != null) {
+        const loc = await resolveLocation(interaction, mesto1);
+        if (loc.error) return interaction.editReply({ embeds: [embeds.buildErrorEmbed(loc.error)] });
+        try {
+            const hd = await weather.getHourlyForecast(loc.lat, loc.lon, loc.tz, 2, loc.units);
+            const embed = embeds.buildHourlyPointEmbed(hd, targetHour, loc.settings);
+            const lid = locId(loc.lat, loc.lon, loc.tz, loc.city);
+            return interaction.editReply({ embeds: [embed], components: buildWeatherRows(lid, 'current') });
+        } catch (err) {
+            console.error('[POCASIE_HOUR]', err);
+            return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Chyba pri nacitani.')] });
+        }
+    }
 
     // Porovnávací mód — dve mestá
     if (mesto2) {
@@ -212,11 +228,12 @@ async function handlePocasie(interaction) {
                 break;
             }
             default: {
-                const [data, dailyData] = await Promise.all([
+                const [data, dailyData, hourlyData] = await Promise.all([
                     weather.getCurrentWeather(loc.lat, loc.lon, loc.tz, loc.units),
                     weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
+                    weather.getHourlyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
                 ]);
-                embed = embeds.buildCurrentWeatherEmbed(data, loc.settings, dailyData);
+                embed = embeds.buildCurrentWeatherEmbed(data, loc.settings, dailyData, hourlyData);
                 break;
             }
         }
@@ -242,11 +259,12 @@ async function handleWeatherButton(interaction) {
         let embed;
         switch (typ) {
             case 'current': {
-                const [data, dd] = await Promise.all([
+                const [data, dd, hd] = await Promise.all([
                     weather.getCurrentWeather(lat, lon, tz, units),
                     weather.getDailyForecast(lat, lon, tz, 1, units),
+                    weather.getHourlyForecast(lat, lon, tz, 1, units),
                 ]);
-                embed = embeds.buildCurrentWeatherEmbed(data, userSettings, dd);
+                embed = embeds.buildCurrentWeatherEmbed(data, userSettings, dd, hd);
                 break;
             }
             case 'today': {
@@ -1496,8 +1514,10 @@ async function handlePollDayPick(interaction) {
     const s = db.getUser(interaction.user.id);
     if (!s?.latitude) return interaction.update({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], components: [] });
 
-    // V DMs posli priamo, na serveri posli ako verejnu spravu
-    const isDM = !interaction.guildId;
+    await interaction.update({
+        embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslany!')],
+        components: [],
+    });
 
     try {
         const maxDay = Math.max(...selectedDays) + 1;
@@ -1505,26 +1525,15 @@ async function handlePollDayPick(interaction) {
 
         if (selectedDays.length === 1) {
             const embed = embeds.buildPollEmbed(dd, s, selectedDays[0]);
-            if (isDM) {
-                // V DMs — posli priamo ako odpoved
-                await interaction.update({ embeds: [embed], components: [] });
-            } else {
-                await interaction.update({ embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslaný!')], components: [] });
-                const msg = await interaction.channel.send({ embeds: [embed] });
-                await msg.react('👍').catch(() => {});
-                await msg.react('👎').catch(() => {});
-                await msg.react('🤷').catch(() => {});
-            }
+            const msg = await interaction.channel.send({ embeds: [embed] });
+            await msg.react('👍').catch(() => {});
+            await msg.react('👎').catch(() => {});
+            await msg.react('🤷').catch(() => {});
         } else {
             const embed = embeds.buildMultiPollEmbed(dd, s, selectedDays);
-            if (isDM) {
-                await interaction.update({ embeds: [embed], components: [] });
-            } else {
-                await interaction.update({ embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslaný!')], components: [] });
-                const msg = await interaction.channel.send({ embeds: [embed] });
-                for (let i = 0; i < selectedDays.length && i < 7; i++) {
-                    await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
-                }
+            const msg = await interaction.channel.send({ embeds: [embed] });
+            for (let i = 0; i < selectedDays.length && i < 7; i++) {
+                await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
             }
         }
     } catch (err) {

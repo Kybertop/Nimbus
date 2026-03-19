@@ -48,14 +48,35 @@ function buildUrl(base, params) {
     return `${base}?${parts.join('&')}`;
 }
 
-async function fetchJson(url) {
-    console.log('[API]', url);
-    const res = await fetch(url);
-    if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(`API ${res.status} — ${body}`);
+async function fetchJson(url, retries = 2) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                if (res.status === 429 && attempt < retries) {
+                    await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+                    continue;
+                }
+                throw new Error(`API ${res.status}: ${body.slice(0, 200)}`);
+            }
+            return res.json();
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                if (attempt < retries) { await new Promise(r => setTimeout(r, 1000)); continue; }
+                throw new Error('API timeout — server neodpoveda');
+            }
+            if (attempt < retries && err.message?.includes('fetch failed')) {
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+            }
+            throw err;
+        }
     }
-    return res.json();
 }
 
 function tz(timezone) {
@@ -79,12 +100,14 @@ const CURRENT_VARS = [
     'temperature_2m', 'relative_humidity_2m', 'apparent_temperature',
     'is_day', 'precipitation', 'weather_code', 'cloud_cover',
     'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
+    'surface_pressure',
 ];
 
 const HOURLY_VARS = [
     'temperature_2m', 'relative_humidity_2m', 'apparent_temperature',
     'precipitation_probability', 'precipitation', 'weather_code',
     'cloud_cover', 'wind_speed_10m', 'wind_gusts_10m', 'is_day',
+    'surface_pressure',
 ];
 
 const DAILY_VARS_SHORT = [
@@ -262,6 +285,33 @@ function getWindDirection(degrees) {
     const dirs = ['S', 'SSV', 'SV', 'VSV', 'V', 'VSZ', 'SZ', 'SSZ', 'S', 'SJV', 'JV', 'VJV', 'V', 'VJZ', 'JZ', 'SJZ'];
     const index = Math.round(degrees / 22.5) % 16;
     return { sk: dirs[index] || '?' };
+}
+
+// ─── Tlak vzduchu ─────────────────────────
+
+function getPressureInfo(pressure, hourlyData) {
+    if (pressure == null) return null;
+    const hpa = Math.round(pressure);
+    let trend = '';
+    let trendEmoji = '➡️';
+
+    // Trend z hodinovych dat — porovnaj posledne 3 hodiny
+    if (hourlyData?.hourly?.surface_pressure) {
+        const p = hourlyData.hourly.surface_pressure;
+        const len = p.length;
+        if (len >= 3) {
+            const recent = p[len - 1];
+            const older = p[len - 3];
+            if (recent != null && older != null) {
+                const diff = recent - older;
+                if (diff > 1.5) { trend = 'stupa'; trendEmoji = '📈'; }
+                else if (diff < -1.5) { trend = 'klesa'; trendEmoji = '📉'; }
+                else { trend = 'stabilny'; trendEmoji = '➡️'; }
+            }
+        }
+    }
+
+    return { hpa, trend, trendEmoji };
 }
 
 // ─── UV Index ──────────────────────────────
@@ -544,7 +594,7 @@ async function getHistoricalComparison(lat, lon, timezone = 'auto') {
 module.exports = {
     WMO_CODES, getWeatherInfo, getWeatherIcon, getWeatherGif, geocode,
     getCurrentWeather, getHourlyForecast, getDailyForecast,
-    getAirQuality, getAqiInfo, getUvInfo,
+    getAirQuality, getAqiInfo, getUvInfo, getPressureInfo,
     getRadarUrl, getRadarImageUrl, getWindDirection, findNiceDays,
     getMoonPhase, getLunarCalendar, getOutfitAdvice, getTrafficWarnings,
     getHistoricalComparison,

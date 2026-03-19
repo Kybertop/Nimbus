@@ -30,7 +30,8 @@ const commands = [
         .setName('pocasie')
         .setDescription('Zobrazí počasie pre tvoju lokalitu')
         .addStringOption(opt => opt.setName('mesto').setDescription('Jednorazovo iné mesto'))
-        .addStringOption(opt => opt.setName('mesto2').setDescription('Druhé mesto na porovnanie'))),
+        .addStringOption(opt => opt.setName('mesto2').setDescription('Druhé mesto na porovnanie'))
+        .addIntegerOption(opt => opt.setName('o').setDescription('Predpoved na konkretnu hodinu (0-23)').setMinValue(0).setMaxValue(23))),
 
     everywhere(new SlashCommandBuilder()
         .setName('vzduch')

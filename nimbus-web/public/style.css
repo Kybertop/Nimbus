@@ -346,6 +346,11 @@ body.radar-active .panel-wrapper{display:none}
 body.radar-active .radar-overlay{right:0}
 .radar-bottom-bar{bottom:8px;left:8px;right:8px;padding:6px 8px;flex-wrap:wrap;gap:4px}
 .radar-layer-btn{padding:4px 7px;font-size:11px}
+.radar-legend{top:44px;left:8px;right:auto;transform:none;padding:5px 8px 4px;border-radius:8px}
+.radar-legend-bar{width:160px;height:10px}
+.radar-legend-labels{width:160px}
+.radar-legend-labels span{font-size:6px}
+.radar-legend-title{font-size:7px}
 }
 .hourly-sub{font-size:12px;padding:5px 10px 5px 20px;opacity:.85}
 .hourly-sub:hover{opacity:1;background:rgba(37,54,72,.3)}

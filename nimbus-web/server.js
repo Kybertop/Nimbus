@@ -212,7 +212,22 @@ app.patch('/api/me/notifications/:notifId', requireAuth, (req, res) => {
     const db = readDB(); const id = req.session.discordId;
     const notif = db[id]?.notifications?.find(n => n.id === req.params.notifId);
     if (!notif) return res.status(404).json({ error: 'Not found' });
-    notif.enabled = !notif.enabled;
+
+    const body = req.body || {};
+
+    if (Object.keys(body).length === 0) {
+        notif.enabled = !notif.enabled;
+    } else {
+        const editable = [
+            'enabled', 'channel_id', 'hour', 'minute', 'event_based',
+            'offset_minutes', 'watch_changes', 'watch_severe', 'watch_moon',
+            'destination', 'type'
+        ];
+        for (const key of editable) {
+            if (key in body) notif[key] = body[key];
+        }
+    }
+
     writeDB(db); res.json(notif);
 });
 

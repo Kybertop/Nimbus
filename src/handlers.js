@@ -1523,17 +1523,41 @@ async function handlePollDayPick(interaction) {
         if (selectedDays.length === 1) {
             const embed = embeds.buildPollEmbed(dd, s, selectedDays[0]);
             await interaction.update({ embeds: [embed], components: [] });
-            const msg = await interaction.fetchReply();
-            await msg.react('👍').catch(() => {});
-            await msg.react('👎').catch(() => {});
-            await msg.react('🤷').catch(() => {});
         } else {
             const embed = embeds.buildMultiPollEmbed(dd, s, selectedDays);
             await interaction.update({ embeds: [embed], components: [] });
-            const msg = await interaction.fetchReply();
-            for (let i = 0; i < selectedDays.length && i < 7; i++) {
-                await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
+        }
+
+        // Pridaj reakcie na spravu
+        const msg = interaction.message;
+        if (msg) {
+            if (selectedDays.length === 1) {
+                await msg.react('👍').catch(e => console.error('[POLL_REACT]', e.message));
+                await msg.react('👎').catch(e => console.error('[POLL_REACT]', e.message));
+                await msg.react('🤷').catch(e => console.error('[POLL_REACT]', e.message));
+            } else {
+                for (let i = 0; i < selectedDays.length && i < 7; i++) {
+                    await msg.react(NUMBER_EMOJIS[i]).catch(e => console.error('[POLL_REACT]', e.message));
+                }
             }
+        } else {
+            // Fallback — fetch cez channel
+            try {
+                const channel = await interaction.client.channels.fetch(interaction.channelId);
+                const msgs = await channel.messages.fetch({ limit: 1 });
+                const lastMsg = msgs.first();
+                if (lastMsg?.author.id === interaction.client.user.id) {
+                    if (selectedDays.length === 1) {
+                        await lastMsg.react('👍').catch(() => {});
+                        await lastMsg.react('👎').catch(() => {});
+                        await lastMsg.react('🤷').catch(() => {});
+                    } else {
+                        for (let i = 0; i < selectedDays.length && i < 7; i++) {
+                            await lastMsg.react(NUMBER_EMOJIS[i]).catch(() => {});
+                        }
+                    }
+                }
+            } catch (e) { console.error('[POLL_REACT_FALLBACK]', e.message); }
         }
     } catch (err) {
         console.error('[POLL_SEND]', err);

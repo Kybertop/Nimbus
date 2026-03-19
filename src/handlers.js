@@ -362,89 +362,29 @@ async function handleRadar(interaction) {
 
     await interaction.deferReply();
 
-    const lat = s.latitude;
-    const lon = s.longitude;
+    try {
+        const radar = require('./radar');
+        const filepath = await radar.generateRadarImage(s.latitude, s.longitude);
 
-    // Windy embed URLs pre rozne vrstvy
-    const windyBase = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&detailLat=${lat}&detailLon=${lon}&width=800&height=450&zoom=8&level=surface&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C`;
+        const { AttachmentBuilder } = require('discord.js');
+        const attachment = new AttachmentBuilder(filepath, { name: 'radar.png' });
 
-    const layers = {
-        radar: { name: 'Radar zrazok', emoji: '🌧️', overlay: 'radar', product: 'radar' },
-        wind: { name: 'Vietor', emoji: '💨', overlay: 'wind', product: 'ecmwf' },
-        temp: { name: 'Teplota', emoji: '🌡️', overlay: 'temp', product: 'ecmwf' },
-        clouds: { name: 'Oblacnost', emoji: '☁️', overlay: 'clouds', product: 'ecmwf' },
-        rain: { name: 'Zrazky', emoji: '🌧️', overlay: 'rainAccu', product: 'ecmwf' },
-        thunder: { name: 'Burky', emoji: '⛈️', overlay: 'thunder', product: 'ecmwf' },
-    };
+        const embed = new EmbedBuilder()
+            .setColor(0x3498DB)
+            .setTitle(`🗺️  Radar zrazok — ${s.city}`)
+            .setImage('attachment://radar.png')
+            .setFooter({ text: '⛅ Nimbus • RainViewer' }).setTimestamp();
 
-    // Default = radar
-    const defaultLayer = 'radar';
-    const layer = layers[defaultLayer];
-    const windyUrl = `${windyBase}&overlay=${layer.overlay}&product=${layer.product}`;
-    const rainviewerUrl = weather.getRadarUrl(lat, lon);
-
-    const embed = new EmbedBuilder()
-        .setColor(0x3498DB)
-        .setTitle(`🗺️  ${layer.emoji} ${layer.name} — ${s.city}`)
-        .setDescription(
-            `**[Otvorit v prehliadaci](${windyUrl})**\n` +
-            `[RainViewer animacia](${rainviewerUrl})\n\n` +
-            `Klikni na button pre zmenu vrstvy:`
-        )
-        .setImage(`https://static.windy.com/img/windy-og.jpg`)
-        .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
-
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`radar:radar:${lat}|${lon}`).setLabel('Radar').setEmoji('🌧️').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId(`radar:wind:${lat}|${lon}`).setLabel('Vietor').setEmoji('💨').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`radar:temp:${lat}|${lon}`).setLabel('Teplota').setEmoji('🌡️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`radar:clouds:${lat}|${lon}`).setLabel('Oblacnost').setEmoji('☁️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`radar:thunder:${lat}|${lon}`).setLabel('Burky').setEmoji('⛈️').setStyle(ButtonStyle.Secondary),
-    );
-
-    return interaction.editReply({ embeds: [embed], components: [row] });
+        return interaction.editReply({ embeds: [embed], files: [attachment] });
+    } catch (err) {
+        console.error('[RADAR]', err);
+        return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Nepodarilo sa vygenerovat radar.')] });
+    }
 }
 
 async function handleRadarButton(interaction) {
-    const parts = interaction.customId.split(':');
-    const layerKey = parts[1];
-    const [lat, lon] = parts[2].split('|').map(Number);
-    const s = db.getUser(interaction.user.id) || { city: `${lat}, ${lon}` };
-
-    const windyBase = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&detailLat=${lat}&detailLon=${lon}&width=800&height=450&zoom=8&level=surface&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C`;
-
-    const layers = {
-        radar: { name: 'Radar zrazok', emoji: '🌧️', overlay: 'radar', product: 'radar', color: 0x3498DB },
-        wind: { name: 'Vietor', emoji: '💨', overlay: 'wind', product: 'ecmwf', color: 0x1ABC9C },
-        temp: { name: 'Teplota', emoji: '🌡️', overlay: 'temp', product: 'ecmwf', color: 0xE74C3C },
-        clouds: { name: 'Oblacnost', emoji: '☁️', overlay: 'clouds', product: 'ecmwf', color: 0x95A5A6 },
-        thunder: { name: 'Burky', emoji: '⛈️', overlay: 'thunder', product: 'ecmwf', color: 0x9B59B6 },
-    };
-
-    const layer = layers[layerKey] || layers.radar;
-    const windyUrl = `${windyBase}&overlay=${layer.overlay}&product=${layer.product}`;
-    const rainviewerUrl = weather.getRadarUrl(lat, lon);
-
-    const embed = new EmbedBuilder()
-        .setColor(layer.color)
-        .setTitle(`🗺️  ${layer.emoji} ${layer.name} — ${s.city || ''}`)
-        .setDescription(
-            `**[Otvorit v prehliadaci](${windyUrl})**\n` +
-            `[RainViewer animacia](${rainviewerUrl})`
-        )
-        .setImage(`https://static.windy.com/img/windy-og.jpg`)
-        .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
-
-    const sty = (key) => key === layerKey ? ButtonStyle.Success : ButtonStyle.Secondary;
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`radar:radar:${lat}|${lon}`).setLabel('Radar').setEmoji('🌧️').setStyle(sty('radar')),
-        new ButtonBuilder().setCustomId(`radar:wind:${lat}|${lon}`).setLabel('Vietor').setEmoji('💨').setStyle(sty('wind')),
-        new ButtonBuilder().setCustomId(`radar:temp:${lat}|${lon}`).setLabel('Teplota').setEmoji('🌡️').setStyle(sty('temp')),
-        new ButtonBuilder().setCustomId(`radar:clouds:${lat}|${lon}`).setLabel('Oblacnost').setEmoji('☁️').setStyle(sty('clouds')),
-        new ButtonBuilder().setCustomId(`radar:thunder:${lat}|${lon}`).setLabel('Burky').setEmoji('⛈️').setStyle(sty('thunder')),
-    );
-
-    return interaction.update({ embeds: [embed], components: [row] });
+    // Radar nema buttony — placeholder pre buducnost
+    return interaction.update({});
 }
 
 // ═══════════════════════════════════════════

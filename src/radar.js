@@ -13,10 +13,44 @@ const LAYERS = {
     thunder: { overlay: 'thunder',  product: 'ecmwf',  name: 'Burky',         emoji: '⛈️', color: 0x9B59B6 },
 };
 
-async function captureWindy(lat, lon, layerKey = 'radar') {
-    const layer = LAYERS[layerKey] || LAYERS.radar;
+const LAYER_KEYS = Object.keys(LAYERS);
 
-    const url = `https://embed.windy.com/embed2.html`
+// Cache: { "lat|lon": { timestamp, files: { radar: filepath, wind: filepath, ... } } }
+const cache = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minut
+const COOLDOWN = 60 * 1000; // 1 min per user
+const userCooldowns = {};
+
+function getCacheKey(lat, lon) {
+    return `${lat.toFixed(2)}|${lon.toFixed(2)}`;
+}
+
+function getCached(lat, lon) {
+    const key = getCacheKey(lat, lon);
+    const entry = cache[key];
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > CACHE_TTL) {
+        delete cache[key];
+        return null;
+    }
+    return entry.files;
+}
+
+function checkCooldown(userId) {
+    const last = userCooldowns[userId];
+    if (last && Date.now() - last < COOLDOWN) {
+        const wait = Math.ceil((COOLDOWN - (Date.now() - last)) / 1000);
+        return wait;
+    }
+    return 0;
+}
+
+function setCooldown(userId) {
+    userCooldowns[userId] = Date.now();
+}
+
+function buildUrl(lat, lon, layer) {
+    return `https://embed.windy.com/embed2.html`
         + `?lat=${lat}&lon=${lon}`
         + `&detailLat=${lat}&detailLon=${lon}`
         + `&width=1000&height=600`
@@ -26,71 +60,89 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
         + `&calendar=now&pressure=`
         + `&type=map&location=coordinates`
         + `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
+}
 
-    console.log('[RADAR] Spustam browser...');
+async function hideUI(page) {
+    await page.evaluate(() => {
+        const style = document.createElement('style');
+        style.textContent = `
+            #bottom, .leaflet-control-container, #embed-zoom,
+            .logo-wrapper, #windy-app-promo, #mobile-calendar,
+            #detail, .progress-bar, .timecode, .overlay-select,
+            #plugin-detail, .right-border, .left-border
+            { display: none !important; }
+        `;
+        document.head.appendChild(style);
+    }).catch(() => {});
+}
+
+// Stiahne VSETKY vrstvy naraz — jeden browser, jedna session
+async function captureAllLayers(lat, lon) {
+    // Skontroluj cache
+    const cached = getCached(lat, lon);
+    if (cached) {
+        console.log('[RADAR] Pouzivam cache');
+        return cached;
+    }
+
+    console.log('[RADAR] Spustam browser — generujem vsetkych', LAYER_KEYS.length, 'vrstiev...');
     const browser = await puppeteer.launch({
         headless: 'shell',
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
 
+    const files = {};
     const page = await browser.newPage();
+
     try {
         await page.setViewport({ width: 1000, height: 600 });
 
-        console.log('[RADAR] Nacitavam Windy:', layerKey);
-        // Rovnaky pristup ako v teste co fungoval
-        page.goto(url, { timeout: 60000 }).catch(e => console.log('[RADAR] goto pozadie:', e.message));
+        for (let i = 0; i < LAYER_KEYS.length; i++) {
+            const key = LAYER_KEYS[i];
+            const layer = LAYERS[key];
+            const url = buildUrl(lat, lon, layer);
 
-        // Cakaj 15s — Windy sa nacita
-        console.log('[RADAR] Cakam 15s na renderovanie...');
-        await new Promise(r => setTimeout(r, 15000));
+            console.log(`[RADAR] [${i + 1}/${LAYER_KEYS.length}] ${key}...`);
 
-        // Skry vsetky Windy UI elementy
-        await page.evaluate(() => {
-            const selectors = [
-                '#bottom', '#mobile-calendar', '#embed-zoom',
-                '.logo-wrapper', '#windy-app-promo',
-                '.leaflet-control-zoom', '.leaflet-control-attribution',
-                '.right-border', '.left-border',
-                '#detail', '.progress-bar', '.timecode',
-                '.leaflet-top', '.leaflet-bottom',
-                '.overlay-select', '#plugin-detail',
-            ];
-            selectors.forEach(sel => {
-                document.querySelectorAll(sel).forEach(el => {
-                    el.style.setProperty('display', 'none', 'important');
-                });
+            if (i === 0) {
+                // Prvy layer — nacitaj stranku
+                page.goto(url, { timeout: 60000 }).catch(() => {});
+                await new Promise(r => setTimeout(r, 15000));
+            } else {
+                // Dalsie layers — zmen vrstvu cez URL hash / navigaciu na tej istej stranke
+                page.goto(url, { timeout: 60000 }).catch(() => {});
+                await new Promise(r => setTimeout(r, 8000));
+            }
+
+            await hideUI(page);
+            await new Promise(r => setTimeout(r, 500));
+
+            const filename = `radar_${key}_${Date.now()}.png`;
+            const filepath = path.join(OUTPUT_DIR, filename);
+
+            await page.screenshot({
+                path: filepath,
+                type: 'png',
+                clip: { x: 0, y: 0, width: 1000, height: 560 },
             });
-            // Skry aj spodny panel cez CSS
-            const style = document.createElement('style');
-            style.textContent = '#bottom, .leaflet-control-container, #embed-zoom, .logo-wrapper { display: none !important; }';
-            document.head.appendChild(style);
-        }).catch(() => {});
 
-        await new Promise(r => setTimeout(r, 500));
-
-        const filename = `radar_${layerKey}_${Date.now()}.png`;
-        const filepath = path.join(OUTPUT_DIR, filename);
-
-        // Screenshot s orezanim — vyrez cistu mapu bez okrajov
-        await page.screenshot({
-            path: filepath,
-            type: 'png',
-            clip: { x: 0, y: 0, width: 1000, height: 560 },
-        });
-        console.log('[RADAR] Screenshot hotovy:', filename);
-
-        return { filepath, layer };
-    } catch (err) {
-        console.error('[RADAR] Chyba:', err.message);
-        throw err;
+            files[key] = filepath;
+            console.log(`[RADAR] [${i + 1}/${LAYER_KEYS.length}] ${key} hotovy`);
+        }
     } finally {
         await page.close().catch(() => {});
         await browser.close().catch(() => {});
+        console.log('[RADAR] Browser zatvoreny');
     }
+
+    // Uloz do cache
+    const cacheKey = getCacheKey(lat, lon);
+    cache[cacheKey] = { timestamp: Date.now(), files };
+
+    return files;
 }
 
-// Cistenie starych suborov (starsie ako 1h)
+// Cistenie starych suborov (starsie ako 10 min)
 function cleanOldImages() {
     if (!fs.existsSync(OUTPUT_DIR)) return;
     const now = Date.now();
@@ -98,12 +150,12 @@ function cleanOldImages() {
         if (!file.startsWith('radar_')) continue;
         const fp = path.join(OUTPUT_DIR, file);
         try {
-            if (now - fs.statSync(fp).mtimeMs > 60 * 60 * 1000) fs.unlinkSync(fp);
+            if (now - fs.statSync(fp).mtimeMs > 10 * 60 * 1000) fs.unlinkSync(fp);
         } catch {}
     }
 }
 
-setInterval(cleanOldImages, 30 * 60 * 1000);
+setInterval(cleanOldImages, 5 * 60 * 1000);
 cleanOldImages();
 
-module.exports = { captureWindy, LAYERS };
+module.exports = { captureAllLayers, LAYERS, LAYER_KEYS, checkCooldown, setCooldown };

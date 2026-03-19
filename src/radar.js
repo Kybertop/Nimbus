@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const puppeteer = require('puppeteer');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'radar');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -13,48 +14,36 @@ const LAYERS = {
 };
 
 async function captureWindy(lat, lon, layerKey = 'radar') {
-    const puppeteer = require('puppeteer');
     const layer = LAYERS[layerKey] || LAYERS.radar;
 
     const url = `https://embed.windy.com/embed2.html`
         + `?lat=${lat}&lon=${lon}`
         + `&detailLat=${lat}&detailLon=${lon}`
         + `&width=800&height=500`
-        + `&zoom=8&level=surface`
+        + `&zoom=9&level=surface`
         + `&overlay=${layer.overlay}&product=${layer.product}`
-        + `&menu=&message=true&marker=true`
-        + `&calendar=now&pressure=true`
+        + `&menu=&message=&marker=true`
+        + `&calendar=now&pressure=`
         + `&type=map&location=coordinates`
         + `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
 
     console.log('[RADAR] Spustam browser...');
     const browser = await puppeteer.launch({
         headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-extensions',
-            '--window-size=800,500',
-        ],
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
     });
 
-    let page;
+    const page = await browser.newPage();
     try {
-        page = await browser.newPage();
         await page.setViewport({ width: 800, height: 500 });
 
         console.log('[RADAR] Nacitavam Windy:', layerKey);
-        
-        // Nenechavaj page.goto cakat na load — Windy nikdy neskonci loadovat
-        // Namiesto toho naviguj a pockaj fixny cas
-        page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
-        
-        // Daj Windy 12 sekund na renderovanie mapy
-        await new Promise(r => setTimeout(r, 12000));
+        // Rovnaky pristup ako v teste co fungoval
+        page.goto(url, { timeout: 60000 }).catch(e => console.log('[RADAR] goto pozadie:', e.message));
 
-        console.log('[RADAR] Robim screenshot...');
+        // Cakaj 15s — Windy sa nacita
+        console.log('[RADAR] Cakam 15s na renderovanie...');
+        await new Promise(r => setTimeout(r, 15000));
 
         // Skry UI elementy
         await page.evaluate(() => {
@@ -62,6 +51,7 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
                 '#bottom', '#mobile-calendar', '#embed-zoom',
                 '.logo-wrapper', '#windy-app-promo',
                 '.leaflet-control-zoom', '.leaflet-control-attribution',
+                '.right-border', '.left-border',
             ];
             selectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(el => {
@@ -76,14 +66,14 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
         const filepath = path.join(OUTPUT_DIR, filename);
 
         await page.screenshot({ path: filepath, type: 'png' });
-        console.log('[RADAR] Screenshot ulozeny:', filename);
+        console.log('[RADAR] Screenshot hotovy:', filename);
 
         return { filepath, layer };
     } catch (err) {
         console.error('[RADAR] Chyba:', err.message);
         throw err;
     } finally {
-        if (page) await page.close().catch(() => {});
+        await page.close().catch(() => {});
         await browser.close().catch(() => {});
     }
 }

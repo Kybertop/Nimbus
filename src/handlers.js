@@ -365,7 +365,10 @@ async function handleRadar(interaction) {
 
     // Cooldown check
     const wait = radar.checkCooldown(interaction.user.id);
-    if (wait > 0) return interaction.reply({ embeds: [embeds.buildErrorEmbed(`Pockaj este ${wait}s pred dalsim radarom.`)], ephemeral: true });
+    if (wait > 0) {
+        const nextUse = Math.floor((Date.now() + wait * 1000) / 1000);
+        return interaction.reply({ embeds: [embeds.buildErrorEmbed(`Radar bude dostupny <t:${nextUse}:R>`)], ephemeral: true });
+    }
 
     await interaction.deferReply();
     await interaction.editReply({ embeds: [embeds.buildLoadingEmbed('Generujem radar (moze to trvat ~30s)...')] }).catch(() => {});
@@ -379,11 +382,12 @@ async function handleRadar(interaction) {
         const { AttachmentBuilder } = require('discord.js');
         const attachment = new AttachmentBuilder(files[defaultLayer], { name: 'radar.png' });
 
+        const deleteAt = Math.floor((Date.now() + 15 * 60 * 1000) / 1000);
         const embed = new EmbedBuilder()
             .setColor(layer.color)
             .setTitle(`🗺️  ${layer.emoji} ${layer.name} — ${s.city}`)
             .setImage('attachment://radar.png')
-            .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
+            .setFooter({ text: `⛅ Nimbus • Windy.com • Zmaze sa <t:${deleteAt}:R>` }).setTimestamp();
 
         const sty = (key) => key === defaultLayer ? ButtonStyle.Success : ButtonStyle.Secondary;
         const row = new ActionRowBuilder().addComponents(
@@ -394,7 +398,14 @@ async function handleRadar(interaction) {
             new ButtonBuilder().setCustomId(`radar:thunder`).setLabel('Burky').setEmoji('⛈️').setStyle(sty('thunder')),
         );
 
-        return interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
+        const msg = await interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
+
+        // Auto-delete po 15 minutach
+        setTimeout(() => {
+            msg.delete().catch(() => {});
+        }, 15 * 60 * 1000);
+
+        return msg;
     } catch (err) {
         console.error('[RADAR]', err.message);
         return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Nepodarilo sa vygenerovat radar.')] });

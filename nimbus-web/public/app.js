@@ -784,7 +784,7 @@ const RADAR_LEGENDS={
     wind:{title:'Vietor km/h',gradient:'linear-gradient(to right,#e3f2fd,#90caf9,#42a5f5,#1e88e5,#1565c0,#4caf50,#ffeb3b,#ff9800,#f44336,#9c27b0)',labels:['0','5','10','20','30','50','70','100','150']},
     clouds:{title:'Oblačnosť %',gradient:'linear-gradient(to right,#3a3a28,#5a5a3a,#7a7a5a,#9a9a7a,#aaa98a,#bbbaa0,#d0cfb8,#e8e7d8,#ffffff)',labels:['0','10','25','40','55','70','85','100']},
     radar:{title:'Radar dBZ',gradient:'linear-gradient(to right,transparent,#a8d5ff,#64b5f6,#4caf50,#ffeb3b,#ff9800,#f44336,#9c27b0,#e040fb)',labels:['0','5','10','20','30','40','50','60','65']},
-    snowcover:{title:'Sneh cm',gradient:'linear-gradient(to right,#263238,#37474f,#546e7a,#78909c,#90a4ae,#b0bec5,#cfd8dc,#eceff1,#ffffff)',labels:['0','1','5','10','20','40','60','100','200']},
+    snowcover:{title:'Snehová pokrývka (cm)',gradient:'linear-gradient(to right,transparent,#a5d6a7,#ffee58,#ffca28,#ffa726,#ef5350,#e53935,#ad1457,#e040fb)',labels:['0','1','5','10','20','40','80','150','300+']},
     pressure:{title:'Tlak hPa',gradient:'linear-gradient(to right,#1a237e,#1565c0,#0288d1,#00acc1,#4caf50,#8bc34a,#ffeb3b,#ff9800,#e65100)',labels:['960','970','980','990','1000','1010','1020','1030','1040']},
     thunder:{title:'Búrky',gradient:'linear-gradient(to right,transparent,#37474f40,#607d8b80,#ffeb3b,#ff9800,#f44336,#d50000,#9c27b0,#e040fb)',labels:['0','','Nízke','','Stredné','','Vysoké','','Extr.']}
 };

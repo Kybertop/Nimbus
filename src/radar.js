@@ -46,10 +46,15 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
         await page.setViewport({ width: 800, height: 500 });
 
         console.log('[RADAR] Nacitavam Windy:', layerKey);
-        await page.goto(url, { waitUntil: 'load', timeout: 45000 });
+        
+        // Nenechavaj page.goto cakat na load — Windy nikdy neskonci loadovat
+        // Namiesto toho naviguj a pockaj fixny cas
+        page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+        
+        // Daj Windy 12 sekund na renderovanie mapy
+        await new Promise(r => setTimeout(r, 12000));
 
-        console.log('[RADAR] Stranka nacitana, cakam na renderovanie...');
-        await new Promise(r => setTimeout(r, 8000));
+        console.log('[RADAR] Robim screenshot...');
 
         // Skry UI elementy
         await page.evaluate(() => {

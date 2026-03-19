@@ -4,31 +4,16 @@ const fs = require('fs');
 const OUTPUT_DIR = path.join(__dirname, '..', 'data', 'radar');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-let puppeteer;
-try { puppeteer = require('puppeteer'); } catch { puppeteer = null; }
-
-let browser = null;
-
-async function getBrowser() {
-    if (!puppeteer) throw new Error('Puppeteer nie je nainstalovany');
-    if (browser && browser.connected) return browser;
-    browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
-    });
-    return browser;
-}
-
 const LAYERS = {
     radar:   { overlay: 'radar',    product: 'radar',  name: 'Radar zrazok',  emoji: '🌧️', color: 0x3498DB },
     wind:    { overlay: 'wind',     product: 'ecmwf',  name: 'Vietor',        emoji: '💨', color: 0x1ABC9C },
     temp:    { overlay: 'temp',     product: 'ecmwf',  name: 'Teplota',       emoji: '🌡️', color: 0xE74C3C },
     clouds:  { overlay: 'clouds',   product: 'ecmwf',  name: 'Oblacnost',     emoji: '☁️', color: 0x95A5A6 },
     thunder: { overlay: 'thunder',  product: 'ecmwf',  name: 'Burky',         emoji: '⛈️', color: 0x9B59B6 },
-    rain:    { overlay: 'rainAccu', product: 'ecmwf',  name: 'Zrazky',        emoji: '🌧️', color: 0x2980B9 },
 };
 
 async function captureWindy(lat, lon, layerKey = 'radar') {
+    const puppeteer = require('puppeteer');
     const layer = LAYERS[layerKey] || LAYERS.radar;
 
     const url = `https://embed.windy.com/embed2.html`
@@ -42,44 +27,59 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
         + `&type=map&location=coordinates`
         + `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
 
-    const br = await getBrowser();
-    const page = await br.newPage();
+    console.log('[RADAR] Spustam browser...');
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-extensions',
+            '--window-size=800,500',
+        ],
+    });
 
+    let page;
     try {
+        page = await browser.newPage();
         await page.setViewport({ width: 800, height: 500 });
 
-        // Zablokuj zbytocne requesty pre rychlost
-        await page.setRequestInterception(true);
-        page.on('request', req => {
-            const type = req.resourceType();
-            if (['font', 'stylesheet'].includes(type)) return req.abort();
-            req.continue();
-        });
+        console.log('[RADAR] Nacitavam Windy:', layerKey);
+        await page.goto(url, { waitUntil: 'load', timeout: 45000 });
 
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        console.log('[RADAR] Stranka nacitana, cakam na renderovanie...');
+        await new Promise(r => setTimeout(r, 8000));
 
-        // Pockaj na canvas element (mapa sa renderuje do canvas)
-        await page.waitForSelector('canvas', { timeout: 15000 }).catch(() => {});
-
-        // Pockaj na dokoncenie renderingu
-        await new Promise(r => setTimeout(r, 5000));
-
-        // Skry Windy UI elementy
+        // Skry UI elementy
         await page.evaluate(() => {
-            const hide = ['#bottom', '#mobile-calendar', '.leaflet-control-container .leaflet-bottom',
-                          '#embed-zoom', '.logo-wrapper', '#windy-app-promo'];
-            hide.forEach(sel => {
-                document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
+            const selectors = [
+                '#bottom', '#mobile-calendar', '#embed-zoom',
+                '.logo-wrapper', '#windy-app-promo',
+                '.leaflet-control-zoom', '.leaflet-control-attribution',
+            ];
+            selectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => {
+                    el.style.setProperty('display', 'none', 'important');
+                });
             });
         }).catch(() => {});
+
+        await new Promise(r => setTimeout(r, 500));
 
         const filename = `radar_${layerKey}_${Date.now()}.png`;
         const filepath = path.join(OUTPUT_DIR, filename);
 
         await page.screenshot({ path: filepath, type: 'png' });
+        console.log('[RADAR] Screenshot ulozeny:', filename);
+
         return { filepath, layer };
+    } catch (err) {
+        console.error('[RADAR] Chyba:', err.message);
+        throw err;
     } finally {
-        await page.close().catch(() => {});
+        if (page) await page.close().catch(() => {});
+        await browser.close().catch(() => {});
     }
 }
 
@@ -98,8 +98,5 @@ function cleanOldImages() {
 
 setInterval(cleanOldImages, 30 * 60 * 1000);
 cleanOldImages();
-
-// Shutdown browser pri ukonceni procesu
-process.on('exit', () => { if (browser) browser.close().catch(() => {}); });
 
 module.exports = { captureWindy, LAYERS };

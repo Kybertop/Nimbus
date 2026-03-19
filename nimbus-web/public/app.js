@@ -95,16 +95,16 @@ const SKY_GRADIENTS = {
     storm:'linear-gradient(180deg,#080810 0%,#10101e 20%,#1a1826 40%,#222030 65%,#2e2a30 100%)'
 };
 const HORIZON_GLOWS = {
-    dawn:'linear-gradient(to top,rgba(240,144,90,.6) 0%,transparent 100%)',
-    morning:'linear-gradient(to top,rgba(255,220,150,.3) 0%,transparent 100%)',
-    day:'linear-gradient(to top,rgba(200,230,255,.2) 0%,transparent 100%)',
-    evening:'linear-gradient(to top,rgba(255,120,40,.5) 0%,transparent 100%)',
-    dusk:'linear-gradient(to top,rgba(180,80,60,.4) 0%,transparent 100%)',
-    night:'linear-gradient(to top,rgba(20,40,100,.3) 0%,transparent 100%)',
-    overcast:'linear-gradient(to top,rgba(80,90,100,.2) 0%,transparent 100%)',
-    rain:'linear-gradient(to top,rgba(40,55,75,.3) 0%,transparent 100%)',
-    snow:'linear-gradient(to top,rgba(160,170,180,.25) 0%,transparent 100%)',
-    storm:'linear-gradient(to top,rgba(20,15,30,.5) 0%,transparent 100%)'
+    dawn:'linear-gradient(to right,rgba(240,144,90,.6) 0%,transparent 100%)',
+    morning:'linear-gradient(to right,rgba(255,220,150,.3) 0%,transparent 100%)',
+    day:'linear-gradient(to right,rgba(200,230,255,.2) 0%,transparent 100%)',
+    evening:'linear-gradient(to right,rgba(255,120,40,.5) 0%,transparent 100%)',
+    dusk:'linear-gradient(to right,rgba(180,80,60,.4) 0%,transparent 100%)',
+    night:'linear-gradient(to right,rgba(20,40,100,.3) 0%,transparent 100%)',
+    overcast:'linear-gradient(to right,rgba(80,90,100,.2) 0%,transparent 100%)',
+    rain:'linear-gradient(to right,rgba(40,55,75,.3) 0%,transparent 100%)',
+    snow:'linear-gradient(to right,rgba(160,170,180,.25) 0%,transparent 100%)',
+    storm:'linear-gradient(to right,rgba(20,15,30,.5) 0%,transparent 100%)'
 };
 
 function getSunPosition(hour){
@@ -778,6 +778,27 @@ async function loadTabHistory(){
 
 let radarLayer='rain';
 
+const RADAR_LEGENDS={
+    rain:{title:'Zrážky mm/h',gradient:'linear-gradient(to right,transparent,#c8e6ff,#64b5f6,#2196f3,#1565c0,#4caf50,#ffeb3b,#ff9800,#f44336,#9c27b0)',labels:['0','0.5','1','2','5','10','20','40','80']},
+    temp:{title:'Teplota °C',gradient:'linear-gradient(to right,#6a1b9a,#283593,#0277bd,#00838f,#2e7d32,#558b2f,#f9a825,#ef6c00,#c62828,#880e4f)',labels:['-30','-20','-10','0','10','15','20','30','40']},
+    wind:{title:'Vietor km/h',gradient:'linear-gradient(to right,#e3f2fd,#90caf9,#42a5f5,#1e88e5,#1565c0,#4caf50,#ffeb3b,#ff9800,#f44336,#9c27b0)',labels:['0','5','10','20','30','50','70','100','150']},
+    clouds:{title:'Oblačnosť %',gradient:'linear-gradient(to right,#3a3a28,#5a5a3a,#7a7a5a,#9a9a7a,#aaa98a,#bbbaa0,#d0cfb8,#e8e7d8,#ffffff)',labels:['0','10','25','40','55','70','85','100']},
+    radar:{title:'Radar dBZ',gradient:'linear-gradient(to right,transparent,#a8d5ff,#64b5f6,#4caf50,#ffeb3b,#ff9800,#f44336,#9c27b0,#e040fb)',labels:['0','5','10','20','30','40','50','60','65']},
+    snowcover:{title:'Sneh cm',gradient:'linear-gradient(to right,#263238,#37474f,#546e7a,#78909c,#90a4ae,#b0bec5,#cfd8dc,#eceff1,#ffffff)',labels:['0','1','5','10','20','40','60','100','200']},
+    pressure:{title:'Tlak hPa',gradient:'linear-gradient(to right,#1a237e,#1565c0,#0288d1,#00acc1,#4caf50,#8bc34a,#ffeb3b,#ff9800,#e65100)',labels:['960','970','980','990','1000','1010','1020','1030','1040']},
+    thunder:{title:'Búrky',gradient:'linear-gradient(to right,transparent,#37474f40,#607d8b80,#ffeb3b,#ff9800,#f44336,#d50000,#9c27b0,#e040fb)',labels:['0','','Nízke','','Stredné','','Vysoké','','Extr.']}
+};
+
+function updateRadarLegend(layer){
+    const legend=RADAR_LEGENDS[layer];if(!legend) return;
+    const titleEl=$('radarLegendTitle');
+    const barEl=$('radarLegendBar');
+    const labelsEl=$('radarLegendLabels');
+    if(titleEl) titleEl.textContent=legend.title;
+    if(barEl) barEl.style.background=legend.gradient;
+    if(labelsEl) labelsEl.innerHTML=legend.labels.map(l=>`<span>${l}</span>`).join('');
+}
+
 function buildWindyUrl(layer){
     const lat=state.lat||48.15;
     const lon=state.lon||17.11;
@@ -792,6 +813,7 @@ function openRadar(){
     radarLayer='rain';
     document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.layer==='rain'));
     const cityLabel=$('radarCityLabel');if(cityLabel) cityLabel.textContent=state.city||'';
+    updateRadarLegend('rain');
     const frame=$('radarFrame');
     if(frame) frame.src=buildWindyUrl(radarLayer);
 }
@@ -805,6 +827,7 @@ function closeRadar(){
 
 function switchRadarLayer(layer){
     radarLayer=layer;
+    updateRadarLegend(layer);
     const frame=$('radarFrame');
     if(frame) frame.src=buildWindyUrl(layer);
     document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.layer===layer));
@@ -1368,16 +1391,34 @@ function initEventListeners(){
     document.querySelectorAll('.radar-layer-btn').forEach(btn=>{
         btn.addEventListener('click',()=>switchRadarLayer(btn.dataset.layer));
     });
-    const touchLayer=$('radarTouchLayer');
-    if(touchLayer){
-        let dragging=false,startX=0,startY=0;
-        touchLayer.addEventListener('mousedown',e=>{dragging=false;startX=e.clientX;startY=e.clientY;touchLayer.style.pointerEvents='none';});
-        document.addEventListener('mousemove',e=>{if(Math.abs(e.clientX-startX)>3||Math.abs(e.clientY-startY)>3) dragging=true;});
-        document.addEventListener('mouseup',()=>{setTimeout(()=>{if(touchLayer) touchLayer.style.pointerEvents='auto'},50);});
-        touchLayer.addEventListener('wheel',e=>{touchLayer.style.pointerEvents='none';setTimeout(()=>{if(touchLayer) touchLayer.style.pointerEvents='auto'},100);},{passive:true});
-        touchLayer.addEventListener('touchstart',()=>{touchLayer.style.pointerEvents='none';},{passive:true});
-        document.addEventListener('touchend',()=>{setTimeout(()=>{if(touchLayer) touchLayer.style.pointerEvents='auto'},300);});
+    const burger=$('hamburgerBtn');
+    const mobileMenu=$('mobileMenu');
+    const mobileOverlay=$('mobileMenuOverlay');
+    const mobileClose=$('mobileMenuClose');
+    function openMobileMenu(){
+        burger?.classList.add('active');
+        mobileMenu?.classList.add('open');
+        mobileOverlay?.classList.remove('hidden');
+        requestAnimationFrame(()=>mobileOverlay?.classList.add('visible'));
     }
+    function closeMobileMenu(){
+        burger?.classList.remove('active');
+        mobileMenu?.classList.remove('open');
+        mobileOverlay?.classList.remove('visible');
+        setTimeout(()=>mobileOverlay?.classList.add('hidden'),300);
+    }
+    burger?.addEventListener('click',()=>{mobileMenu?.classList.contains('open')?closeMobileMenu():openMobileMenu()});
+    mobileClose?.addEventListener('click',closeMobileMenu);
+    mobileOverlay?.addEventListener('click',closeMobileMenu);
+    document.querySelectorAll('.mobile-menu-item').forEach(item=>{
+        item.addEventListener('click',()=>{
+            const tab=item.dataset.tab;
+            switchWeatherTab(tab);
+            document.querySelectorAll('.mobile-menu-item').forEach(i=>i.classList.remove('active'));
+            item.classList.add('active');
+            closeMobileMenu();
+        });
+    });
 }
 
 function init(){

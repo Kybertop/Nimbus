@@ -86,9 +86,36 @@
             </div>
             <div class="flex items-center gap-3">
                 <button id="radarOpenBtn" class="radar-open-btn" title="Radar">🗺️</button>
+                <button id="hamburgerBtn" class="hamburger-btn" aria-label="Menu">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </button>
                 <div id="headerTime" class="text-sm font-mono" style="color:#8899b0;"></div>
             </div>
         </div>
+
+        <div id="mobileMenuOverlay" class="mobile-menu-overlay hidden"></div>
+        <nav id="mobileMenu" class="mobile-menu">
+            <div class="mobile-menu-header">
+                <span style="font-size:18px;font-weight:700;color:#e8edf5">Menu</span>
+                <button id="mobileMenuClose" class="mobile-menu-close">✕</button>
+            </div>
+            <div class="mobile-menu-items">
+                <button class="mobile-menu-item" data-tab="current"><span class="mobile-menu-icon">🌡️</span>Aktuálne</button>
+                <button class="mobile-menu-item" data-tab="today"><span class="mobile-menu-icon">📋</span>Dnes</button>
+                <button class="mobile-menu-item" data-tab="7d"><span class="mobile-menu-icon">📆</span>7 dní</button>
+                <button class="mobile-menu-item" data-tab="14d"><span class="mobile-menu-icon">📅</span>14 dní</button>
+                <div class="mobile-menu-divider"></div>
+                <button class="mobile-menu-item" data-tab="air"><span class="mobile-menu-icon">🏔️</span>Vzduch</button>
+                <button class="mobile-menu-item" data-tab="nice"><span class="mobile-menu-icon">☀️</span>Pekne?</button>
+                <button class="mobile-menu-item" data-tab="outfit"><span class="mobile-menu-icon">👔</span>Obliecť</button>
+                <button class="mobile-menu-item" data-tab="traffic"><span class="mobile-menu-icon">🚗</span>Doprava</button>
+                <div class="mobile-menu-divider"></div>
+                <button class="mobile-menu-item" data-tab="moon"><span class="mobile-menu-icon">🌙</span>Mesiac</button>
+                <button class="mobile-menu-item" data-tab="history"><span class="mobile-menu-icon">📜</span>História</button>
+            </div>
+        </nav>
 
         <div id="weatherHero" class="px-5 py-3">
             <div id="weatherLoading" class="flex flex-col items-center justify-center py-12 gap-3">
@@ -364,9 +391,14 @@
 
 <div id="radarOverlay" class="radar-overlay hidden">
     <div id="radarMapContainer" class="radar-map-container">
-        <iframe id="radarFrame" style="position:absolute;top:-30px;left:0;width:calc(100% + 50px);height:calc(100% + 220px);border:none" allowfullscreen></iframe>
+        <iframe id="radarFrame" style="position:absolute;top:-55px;left:0;width:calc(100% + 50px);height:calc(100% + 275px);border:none" allowfullscreen></iframe>
         <button id="radarCloseBtn" class="radar-close-btn">✕ Zavrieť</button>
         <div class="radar-city-label" id="radarCityLabel"></div>
+        <div class="radar-legend" id="radarLegend">
+            <div class="radar-legend-title" id="radarLegendTitle">Zrážky (mm/h)</div>
+            <div class="radar-legend-bar" id="radarLegendBar"></div>
+            <div class="radar-legend-labels" id="radarLegendLabels"></div>
+        </div>
         <div class="radar-bottom-bar">
             <div class="radar-layers">
                 <button class="radar-layer-btn active" data-layer="rain">🌧️ Zrážky</button>

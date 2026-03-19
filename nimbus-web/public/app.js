@@ -380,7 +380,7 @@ async function loadWeather(lat,lon,tz,cityName){
         renderCurrentTab(c,d);
         updateSkyScene(c.weather_code,c.is_day,cityHour);scheduleSkyFreeze();
         if(typeof updateFavicon==='function') updateFavicon();
-        if(radarMap) updateRadarLocation();
+        if(typeof updateRadarLocation==='function') updateRadarLocation();
         els.weatherLoading.classList.add('hidden');els.weatherData.classList.remove('hidden');
         const defaultView='current';
         switchWeatherTab(defaultView);
@@ -776,24 +776,12 @@ async function loadTabHistory(){
     tabInflight.delete('history');tabLoading('loadingHistory',false);
 }
 
-let radarMap=null,radarFrames=[],radarLayers=[],radarIdx=0,radarInterval=null,radarPlaying=true;
-let radarActiveType='rain',radarMarker=null;
+let radarLayer='rain';
 
-const RADAR_LEGENDS={
-    rain:{title:'Zrážky (mm/h)',gradient:'linear-gradient(90deg,#00000000,#0000ff,#00d4ff,#00ff00,#ffff00,#ff8c00,#ff0000,#ff00ff)',labels:['0','0.5','1','2','5','10','25','50+']},
-    wind:{title:'Rýchlosť vetra (m/s)',gradient:'linear-gradient(90deg,#ffffff40,#a8d5ff,#64b5f6,#42a5f5,#1e88e5,#f9a825,#ff8f00,#e65100,#b71c1c)',labels:['0','2','5','10','15','20','25','30+']},
-    temp:{title:'Teplota (°C)',gradient:'linear-gradient(90deg,#4a148c,#1565c0,#00838f,#2e7d32,#f9a825,#e65100,#b71c1c,#880e4f)',labels:['-30','-20','-10','0','10','20','30','40+']},
-    cloud:{title:'Oblačnosť (%)',gradient:'linear-gradient(90deg,#00000000,#ffffff20,#ffffff40,#ffffff60,#ffffff80,#ffffffa0,#ffffffc0,#ffffffe0)',labels:['0','15','30','45','60','75','90','100']}
-};
-
-function updateRadarLegend(type){
-    const legend=RADAR_LEGENDS[type];if(!legend) return;
-    const titleEl=$('radarLegendTitle');
-    const gradEl=$('radarLegendGradient');
-    const labelsEl=$('radarLegendLabels');
-    if(titleEl) titleEl.textContent=legend.title;
-    if(gradEl) gradEl.style.background=legend.gradient;
-    if(labelsEl) labelsEl.innerHTML=legend.labels.map(l=>`<span>${l}</span>`).join('');
+function buildWindyUrl(layer){
+    const lat=state.lat||48.15;
+    const lon=state.lon||17.11;
+    return `https://embed.windy.com/embed2.html?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}&detailLat=${lat.toFixed(4)}&detailLon=${lon.toFixed(4)}&zoom=8&level=surface&overlay=${layer}&product=ecmwf&menu=&message=true&marker=&calendar=now&type=map&location=coordinates&metricWind=km%2Fh&metricTemp=%C2%B0C&metricRain=mm&animate=true`;
 }
 
 function openRadar(){
@@ -801,105 +789,32 @@ function openRadar(){
     const overlay=$('radarOverlay');if(!overlay) return;
     overlay.classList.remove('hidden');
     document.body.classList.add('radar-active');
-    if(typeof L==='undefined'){setTimeout(openRadar,300);return}
-    if(radarMap){radarMap.remove();radarMap=null}
-    if(radarInterval){clearInterval(radarInterval);radarInterval=null}
-    radarFrames=[];radarLayers=[];radarIdx=0;radarPlaying=true;
-    const playBtn=$('radarPlayBtn');if(playBtn) playBtn.textContent='⏸';
+    radarLayer='rain';
+    document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.layer==='rain'));
     const cityLabel=$('radarCityLabel');if(cityLabel) cityLabel.textContent=state.city||'';
-    const map=L.map('radarMap',{zoomControl:false,attributionControl:false,maxZoom:12,minZoom:2}).setView([state.lat,state.lon],7);
-    L.control.zoom({position:'bottomright'}).addTo(map);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(map);
-    radarMarker=L.circleMarker([state.lat,state.lon],{radius:6,color:'#4c6ef5',fillColor:'#4c6ef5',fillOpacity:0.8,weight:2}).addTo(map);
-    radarMarker.bindTooltip(state.city||'',{permanent:true,direction:'top',offset:[0,-10],className:'radar-tooltip'});
-    radarMap=map;
-    loadRadarLayer('rain');
-    document.querySelectorAll('.radar-layer-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.layer==='rain'));
-    updateRadarLegend('rain');
-    setTimeout(()=>{if(radarMap) radarMap.invalidateSize()},200);
+    const frame=$('radarFrame');
+    if(frame) frame.src=buildWindyUrl(radarLayer);
 }
 
 function closeRadar(){
-    if(radarInterval){clearInterval(radarInterval);radarInterval=null}
-    if(radarMap){radarMap.remove();radarMap=null}
-    radarFrames=[];radarLayers=[];radarMarker=null;
+    const frame=$('radarFrame');
+    if(frame) frame.src='';
     $('radarOverlay')?.classList.add('hidden');
     document.body.classList.remove('radar-active');
 }
 
+function switchRadarLayer(layer){
+    radarLayer=layer;
+    const frame=$('radarFrame');
+    if(frame) frame.src=buildWindyUrl(layer);
+    document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.layer===layer));
+}
+
 function updateRadarLocation(){
-    if(!radarMap||!state.lat) return;
-    radarMap.setView([state.lat,state.lon],7);
-    if(radarMarker){
-        radarMarker.setLatLng([state.lat,state.lon]);
-        radarMarker.setTooltipContent(state.city||'');
-    }
+    if(!document.body.classList.contains('radar-active')) return;
     const cityLabel=$('radarCityLabel');if(cityLabel) cityLabel.textContent=state.city||'';
-    loadRadarLayer(radarActiveType);
-}
-
-async function loadRadarLayer(type){
-    if(!radarMap) return;
-    radarActiveType=type;
-    if(radarInterval){clearInterval(radarInterval);radarInterval=null}
-    radarLayers.forEach(l=>{if(radarMap.hasLayer(l)) radarMap.removeLayer(l)});
-    radarLayers=[];radarFrames=[];radarIdx=0;
-    updateRadarLegend(type);
-    const timeEl=$('radarTime');
-    const playbackEl=$('radarPlayback');
-
-    if(type==='rain'){
-        if(playbackEl) playbackEl.style.display='flex';
-        if(timeEl) timeEl.textContent='Načítavam…';
-        try{
-            const rvRes=await fetch('https://api.rainviewer.com/public/weather-maps.json');
-            if(!rvRes.ok) throw new Error('API '+rvRes.status);
-            const rv=await rvRes.json();
-            const host=rv.host||'https://tilecache.rainviewer.com';
-            const past=rv.radar?.past||[];const nowcast=rv.radar?.nowcast||[];
-            radarFrames=[...past,...nowcast];
-            if(!radarFrames.length){if(timeEl) timeEl.textContent='Žiadne dáta';return}
-            for(const f of radarFrames){
-                const layer=L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,{opacity:0,zIndex:10,maxNativeZoom:7,maxZoom:12});
-                layer.addTo(radarMap);
-                radarLayers.push(layer);
-            }
-            radarIdx=radarLayers.length-1;
-            radarLayers[radarIdx].setOpacity(0.85);
-            updateRadarTime();
-            radarPlaying=true;
-            const pb=$('radarPlayBtn');if(pb) pb.textContent='⏸';
-            radarInterval=setInterval(()=>{
-                if(!radarPlaying||!radarMap||!radarLayers.length) return;
-                radarLayers[radarIdx].setOpacity(0);
-                radarIdx=(radarIdx+1)%radarLayers.length;
-                radarLayers[radarIdx].setOpacity(0.85);
-                updateRadarTime();
-            },800);
-        } catch(e){console.error('Radar error:',e);if(timeEl) timeEl.textContent='Radar nedostupný'}
-    } else {
-        if(playbackEl) playbackEl.style.display='none';
-        const owmKey='9de243494c0b295cca9337e1e96b00e2';
-        const layerMap={wind:'wind_new',temp:'temp_new',cloud:'clouds_new'};
-        const opacityMap={wind:0.65,temp:0.65,cloud:0.5};
-        const labels={wind:'Vietor',temp:'Teplota',cloud:'Oblačnosť'};
-        const layer=L.tileLayer(`https://tile.openweathermap.org/map/${layerMap[type]}/{z}/{x}/{y}.png?appid=${owmKey}`,{opacity:opacityMap[type]||0.7,zIndex:10,maxNativeZoom:7,maxZoom:12});
-        layer.addTo(radarMap);radarLayers=[layer];
-        const now=new Date();
-        if(timeEl) timeEl.textContent=`${labels[type]} · ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    }
-}
-
-function updateRadarTime(){
-    const el=$('radarTime');if(!el) return;
-    if(!radarFrames.length||radarIdx>=radarFrames.length){el.textContent='—';return}
-    const frame=radarFrames[radarIdx];
-    if(!frame||!frame.time){el.textContent='—';return}
-    const ts=frame.time*1000;
-    const d=new Date(ts);
-    const now=Math.floor(Date.now()/1000);
-    const isPast=frame.time<=now;
-    el.textContent=`${isPast?'':'🔮 '}${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${d.getDate()}.${d.getMonth()+1}.`;
+    const frame=$('radarFrame');
+    if(frame) frame.src=buildWindyUrl(radarLayer);
 }
 
 async function handleCitySearch(){
@@ -1450,14 +1365,19 @@ function initEventListeners(){
     });
     $('radarOpenBtn')?.addEventListener('click',openRadar);
     $('radarCloseBtn')?.addEventListener('click',closeRadar);
-    $('radarPlayBtn')?.addEventListener('click',()=>{radarPlaying=!radarPlaying;const pb=$('radarPlayBtn');if(pb) pb.textContent=radarPlaying?'⏸':'▶'});
     document.querySelectorAll('.radar-layer-btn').forEach(btn=>{
-        btn.addEventListener('click',()=>{
-            document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.remove('active'));
-            btn.classList.add('active');
-            loadRadarLayer(btn.dataset.layer);
-        });
+        btn.addEventListener('click',()=>switchRadarLayer(btn.dataset.layer));
     });
+    const touchLayer=$('radarTouchLayer');
+    if(touchLayer){
+        let dragging=false,startX=0,startY=0;
+        touchLayer.addEventListener('mousedown',e=>{dragging=false;startX=e.clientX;startY=e.clientY;touchLayer.style.pointerEvents='none';});
+        document.addEventListener('mousemove',e=>{if(Math.abs(e.clientX-startX)>3||Math.abs(e.clientY-startY)>3) dragging=true;});
+        document.addEventListener('mouseup',()=>{setTimeout(()=>{if(touchLayer) touchLayer.style.pointerEvents='auto'},50);});
+        touchLayer.addEventListener('wheel',e=>{touchLayer.style.pointerEvents='none';setTimeout(()=>{if(touchLayer) touchLayer.style.pointerEvents='auto'},100);},{passive:true});
+        touchLayer.addEventListener('touchstart',()=>{touchLayer.style.pointerEvents='none';},{passive:true});
+        document.addEventListener('touchend',()=>{setTimeout(()=>{if(touchLayer) touchLayer.style.pointerEvents='auto'},300);});
+    }
 }
 
 function init(){

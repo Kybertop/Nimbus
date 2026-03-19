@@ -363,7 +363,6 @@ async function handleRadar(interaction) {
 
     const radar = require('./radar');
 
-    // Cooldown check
     const wait = radar.checkCooldown(interaction.user.id);
     if (wait > 0) {
         const nextUse = Math.floor((Date.now() + wait * 1000) / 1000);
@@ -371,16 +370,15 @@ async function handleRadar(interaction) {
     }
 
     await interaction.deferReply();
-    await interaction.editReply({ embeds: [embeds.buildLoadingEmbed('Generujem radar (moze to trvat ~30s)...')] }).catch(() => {});
+    await interaction.editReply({ embeds: [embeds.buildLoadingEmbed('Generujem radar...')] }).catch(() => {});
 
     try {
         radar.setCooldown(interaction.user.id);
-        const files = await radar.captureAllLayers(s.latitude, s.longitude);
+        const filepath = await radar.captureFirstLayer(s.latitude, s.longitude);
 
-        const defaultLayer = 'radar';
-        const layer = radar.LAYERS[defaultLayer];
+        const layer = radar.LAYERS.radar;
         const { AttachmentBuilder } = require('discord.js');
-        const attachment = new AttachmentBuilder(files[defaultLayer], { name: 'radar.png' });
+        const attachment = new AttachmentBuilder(filepath, { name: 'radar.png' });
 
         const deleteAt = Math.floor((Date.now() + 15 * 60 * 1000) / 1000);
         const embed = new EmbedBuilder()
@@ -390,7 +388,7 @@ async function handleRadar(interaction) {
             .setImage('attachment://radar.png')
             .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
 
-        const sty = (key) => key === defaultLayer ? ButtonStyle.Success : ButtonStyle.Secondary;
+        const sty = (key) => key === 'radar' ? ButtonStyle.Success : ButtonStyle.Secondary;
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`radar:radar`).setLabel('Radar').setEmoji('🌧️').setStyle(sty('radar')),
             new ButtonBuilder().setCustomId(`radar:wind`).setLabel('Vietor').setEmoji('💨').setStyle(sty('wind')),
@@ -401,11 +399,7 @@ async function handleRadar(interaction) {
 
         const msg = await interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
 
-        // Auto-delete po 15 minutach
-        setTimeout(() => {
-            msg.delete().catch(() => {});
-        }, 15 * 60 * 1000);
-
+        setTimeout(() => { msg.delete().catch(() => {}); }, 15 * 60 * 1000);
         return msg;
     } catch (err) {
         console.error('[RADAR]', err.message);
@@ -419,20 +413,13 @@ async function handleRadarButton(interaction) {
     if (!s?.latitude) return interaction.update({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], components: [] });
 
     const radar = require('./radar');
-    const fs = require('fs');
+    const filepath = radar.getLayerFile(layerKey);
 
-    // Najdi posledny screenshot pre dany layer na disku
-    const dir = path.join(__dirname, '..', 'data', 'radar');
-    let filepath = null;
-    if (fs.existsSync(dir)) {
-        const matching = fs.readdirSync(dir)
-            .filter(f => f.startsWith(`radar_${layerKey}_`))
-            .sort().reverse();
-        if (matching.length > 0) filepath = path.join(dir, matching[0]);
-    }
-
-    if (!filepath || !fs.existsSync(filepath)) {
-        return interaction.reply({ embeds: [embeds.buildErrorEmbed('Screenshot pre tuto vrstvu neexistuje. Pouzi `/radar` znova.')], ephemeral: true });
+    if (!filepath) {
+        return interaction.reply({
+            embeds: [embeds.buildErrorEmbed('Tato vrstva sa este generuje, skus o par sekund...')],
+            ephemeral: true,
+        });
     }
 
     await interaction.deferUpdate();

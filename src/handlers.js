@@ -1463,7 +1463,7 @@ async function handlePoll(interaction) {
     const s = db.getUser(interaction.user.id);
     if (!s?.latitude) return interaction.reply({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], ephemeral: true });
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     try {
         const dd = await weather.getDailyForecast(s.latitude, s.longitude, s.timezone || 'auto', 7);
         const d = dd.daily;
@@ -1516,41 +1516,19 @@ async function handlePollDayPick(interaction) {
     const s = db.getUser(interaction.user.id);
     if (!s?.latitude) return interaction.update({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], components: [] });
 
-    // Skus poslat verejne do kanala
-    let channel = null;
-    try { channel = interaction.channel || await interaction.client.channels.fetch(interaction.channelId); } catch {}
-
-    if (!channel) {
-        // Fallback — posli priamo ako update
-        try {
-            const maxDay = Math.max(...selectedDays) + 1;
-            const dd = await weather.getDailyForecast(s.latitude, s.longitude, s.timezone || 'auto', maxDay);
-            const embed = selectedDays.length === 1
-                ? embeds.buildPollEmbed(dd, s, selectedDays[0])
-                : embeds.buildMultiPollEmbed(dd, s, selectedDays);
-            return interaction.update({ embeds: [embed], components: [] });
-        } catch (err) {
-            console.error('[POLL]', err);
-            return interaction.update({ embeds: [embeds.buildErrorEmbed('Chyba.')], components: [] });
-        }
-    }
-
-    // Dismiss vyber
-    await interaction.update({ embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslany!')], components: [] });
-
     try {
         const maxDay = Math.max(...selectedDays) + 1;
         const dd = await weather.getDailyForecast(s.latitude, s.longitude, s.timezone || 'auto', maxDay);
 
         if (selectedDays.length === 1) {
             const embed = embeds.buildPollEmbed(dd, s, selectedDays[0]);
-            const msg = await channel.send({ embeds: [embed] });
+            const msg = await interaction.update({ embeds: [embed], components: [], fetchReply: true });
             await msg.react('👍').catch(() => {});
             await msg.react('👎').catch(() => {});
             await msg.react('🤷').catch(() => {});
         } else {
             const embed = embeds.buildMultiPollEmbed(dd, s, selectedDays);
-            const msg = await channel.send({ embeds: [embed] });
+            const msg = await interaction.update({ embeds: [embed], components: [], fetchReply: true });
             for (let i = 0; i < selectedDays.length && i < 7; i++) {
                 await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
             }
@@ -1669,63 +1647,54 @@ const BOT_OWNERS = ['252163630576041994', '562024534958538783'];
 
 const CHANGELOG = [
     {
-        version: '2.0.0',
-        date: '19.03.2026',
+        version: '2.2',
+        date: '19.03.2026 (vecer)',
         changes: [
             { cat: 'Nove', items: [
-                'Notifikacie na fazy mesiaca (nov, spln, stvrt)',
-                'Vystrahy ako kategoria s multi-selectom (dazd, burka, sneh, hmla, vietor, namraza)',
-                'Predpoved na konkretnu hodinu `/pocasie o:14`',
-                'Tlak vzduchu s trendom (stupa/klesa/stabilny)',
-                'Historicke porovnanie — dnes vs 5-rocny priemer',
-                'Hodinovy ASCII graf teploty (24h)',
-                'Voice kanal s automatickym premenovanim podla pocasia',
-                'Default view nastavenie (aktualne/dnes/7d/14d)',
-                'Zobrazenie preferencie (toggle meniny, graf, UV, slnko)',
-                'UV index s SPF odporuceniami (5 urovni)',
-                '/outfit mesto:Praha — outfit pre ine mesto',
-                'Lunarny kalendar na 14 dni',
-                'Interaktivny /help s buttonmi na sekcie',
-            ]},
-            { cat: 'Zmenene', items: [
-                'Pocitova teplota ako samostatny field',
-                'Vlhkost a oblacnost oddelene',
-                'Porovnanie miest — tabulkovy layout s farebnymi sipkami',
-                'Farba embedu podla teploty (modra az cervena)',
-                'Animovane SVG ikony pocasia',
-                'Notifikacie — DM alebo serverovy kanal na vyber',
-                'Notifikacie — upravovanie existujucich (pridaj/odober typy)',
-                'Sekvencne ID notifikacii (1, 2, 3...)',
-                'Jednotky — 6 kombinacii (°C/°F + km/h/m/s/mph)',
-                'Discord dynamicke timestampy pre vychod/zapad',
-                'Outfit — jednoduche slovenske nazvy',
+                '/changelog command (owner only)',
+                'Poll verejny aj v DMs — vidi ho kazdy',
+                'Porovnanie miest — tabulkovy layout s custom sipkami',
             ]},
             { cat: 'Opravene', items: [
-                'Fahrenheit farby embedu (auto-detekcia a prepocet)',
-                'Footer "Automaticka notifikacia" len pri notifikaciach',
-                'null:null v notifikaciach',
-                'Poll funguje v DMs — viditelny pre vsetkych',
-                'API retry s timeoutom a backoffom',
-            ]},
-            { cat: 'Technicke', items: [
-                'User-installable app (funguje vsade — DMs, servery, cudzie DMs)',
-                'Zivy status bota s aktualnou teplotou',
-                'File logging s dennou rotaciou',
-                'Crash recovery s PM2 auto-restartom',
-                'Auto-deploy z GitHubu (npm install + deploy + restart)',
+                'Poll uz nie je ephemeral — kamarati ho vidia v DMs',
+                'Custom emote <:UP:> a <:DOWN:> v porovnani',
             ]},
         ],
     },
     {
-        version: '1.0.0',
-        date: '17.03.2026',
+        version: '2.1',
+        date: '19.03.2026 (poobede)',
         changes: [
-            { cat: 'Prve vydanie', items: [
-                '12 slash commandov',
-                'Per-user nastavenia a oblubene mesta',
-                'Notifikacny system (denne, vystrahy, slnko)',
-                'Pocasie, vzduch, radar, poll, kanal',
-                'Slovenske meniny',
+            { cat: 'Nove', items: [
+                'Tlak vzduchu s trendom (stupa/klesa) v /pocasie',
+                'Pocitova teplota ako samostatny field',
+                'Predpoved na konkretnu hodinu `/pocasie o:14`',
+                'Zobrazenie preferencie (toggle meniny, graf, UV, slnko)',
+                '6 kombinacii jednotiek (°C/°F + km/h/m/s/mph)',
+            ]},
+            { cat: 'Opravene', items: [
+                'Fahrenheit farby embedu (auto-detekcia)',
+                'Footer fix — "Automaticka notifikacia" len pri notif',
+                'API retry s timeoutom a backoffom',
+                'Outfit — jednoduche slovenske nazvy, UV krem od 6+',
+            ]},
+        ],
+    },
+    {
+        version: '2.0',
+        date: '19.03.2026 (rano)',
+        changes: [
+            { cat: 'Nove', items: [
+                'Notifikacie na fazy mesiaca',
+                'Vystrahy ako kategoria s multi-selectom',
+                'Upravovanie existujucich notifikacii',
+                'Historicke porovnanie (dnes vs 5-rocny priemer)',
+                'Voice kanal s automatickym premenovanim',
+                'UV index s SPF odporuceniami',
+                'Hodinovy ASCII graf teploty',
+                'Interaktivny /help s buttonmi',
+                'User-installable app (DMs, servery, cudzie DMs)',
+                'Auto-deploy z GitHubu',
             ]},
         ],
     },

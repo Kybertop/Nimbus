@@ -353,89 +353,78 @@ function getOutfitAdvice(currentData, dailyData) {
     let emoji = '';
     let tip = '';
 
-    // Vrstva oblečenia podľa teploty — s variantmi
+    // Oblecenie podla teploty
     if (feelsLike < -10) {
-        layers.push(pick(['🧥 Hrubá zimná bunda', '🧥 Páperová bunda', '🧥 Dlhý zimný kabát']));
-        layers.push('🧣 Šál + čiapka + rukavice');
-        layers.push(pick(['👕 Termobielizeň + hrubý sveter', '👕 Fleecová mikina + termo vrstva', '👕 Vlnený sveter + spodná vrstva']));
+        layers.push('🧥 Zimna bunda (hruba)');
+        layers.push('🧣 Sal + ciapka + rukavice');
+        layers.push('👕 Termobielizen + sveter');
         emoji = '🥶';
-        tip = pick(['Dnes radšej čaj do termosky.', 'Zahrej sa pred odchodom!', 'Na nose budeš mať červeno.']);
     } else if (feelsLike < 0) {
-        layers.push(pick(['🧥 Zimná bunda', '🧥 Prešívaná bunda', '🧥 Páperová vesta + mikina']));
-        layers.push(pick(['🧣 Šál a čiapka', '🧣 Nákrčník + čiapka', '🧣 Kapucňa stačí + šál']));
-        layers.push(pick(['👕 Sveter', '👕 Hrubá mikina', '👕 Rolák']));
+        layers.push('🧥 Zimna bunda');
+        layers.push('🧣 Sal a ciapka');
+        layers.push('👕 Sveter / hruba mikina');
         emoji = '❄️';
-        tip = pick(['Mrzne, ale dá sa prežiť!', 'Ruky do vreciek.', 'Ideálne počasie na horúcu čokoládu.']);
     } else if (feelsLike < 10) {
-        layers.push(pick(['🧥 Prechodná bunda', '🧥 Bomber bunda', '🧥 Kožená bunda', '🧥 Softshell']));
-        layers.push(pick(['👕 Dlhý rukáv + tenký sveter', '👕 Mikina', '👕 Flanelová košeľa', '👕 Hoodie']));
+        layers.push('🧥 Prechodna bunda');
+        layers.push('👕 Mikina / sveter');
         emoji = '🍂';
-        tip = pick(['Klasické počasie na vrstvenie.', 'Ráno chladné, poobede OK.', 'Mikina je tvoj najlepší kamarát.']);
     } else if (feelsLike < 18) {
-        layers.push(pick(['🧥 Ľahká bunda', '🧥 Mikina na zips', '🧥 Tenká vetrovka', '🧥 Košeľa cez tričko']));
-        layers.push(pick(['👕 Tričko s dlhým rukávom', '👕 Tenká mikina', '👕 Polo tričko', '👕 Ľanová košeľa']));
+        layers.push('🧥 Lahka bunda / mikina');
+        layers.push('👕 Tricko s dlhym rukavom');
         emoji = '🌤️';
-        tip = pick(['Príjemne, ale večer pribal vrstvu.', 'Ideálne na prechádzku.', 'Ani zima ani teplo — paráda.']);
     } else if (feelsLike < 25) {
-        layers.push(pick(['👕 Tričko', '👕 Polo', '👕 Ľahká košeľa', '👕 Tank top + ľahká košeľa']));
-        layers.push(pick(['👖 Ľahké nohavice', '👖 Chinos', '👖 Plátené nohavice', '👖 Rifle']));
+        layers.push('👕 Tricko');
+        layers.push('👖 Lahke nohavice');
         emoji = '☀️';
-        tip = pick(['Dnešok bude fajn!', 'Tričko stačí.', 'Užívaj slnko!', 'Dnes sa oplatí ísť von.']);
     } else if (feelsLike < 33) {
-        layers.push(pick(['👕 Ľahké tričko', '👕 Tielko', '👕 Vzdušná košeľa', '👕 Crop top']));
-        layers.push(pick(['🩳 Kraťasy', '🩳 Šortky', '👗 Ľahké šaty', '👖 Ľanové nohavice']));
+        layers.push('👕 Tricko / tielko');
+        layers.push('🩳 Kratasy');
         emoji = '🥵';
-        tip = pick(['Pij veľa vody!', 'Dnes radšej do tieňa.', 'Klobúk by nebol na škodu.', 'Zmrzlina je povinná.']);
     } else {
-        layers.push(pick(['👕 Minimum oblečenia', '👕 Najľahšie čo máš', '👕 Tielko / športový top']));
-        layers.push('🩳 Kraťasy / plavky');
+        layers.push('👕 Co najmenej oblecenia');
+        layers.push('🩳 Kratasy');
         emoji = '🔥';
-        tip = pick(['Extrémne teplo — zostaň v chlade!', 'Hydratácia je základ.', 'Vyhýbaj sa poludňajšiemu slnku.']);
     }
 
-    // Dážď varianty
+    // Dazd
     if (rain > 60) {
-        accessories.push(pick(['☂️ Dáždnik je nutnosť!', '☂️ Bez dáždnika nechoď!', '☂️ Dáždnik + pršiplášť ideálne']));
-        footwear = pick(['👢 Nepremokavá obuv', '👢 Gumáky', '👢 Waterproof topánky']);
+        accessories.push('☂️ Dazdnik urcite!');
+        footwear = '👢 Nepremokava obuv';
     } else if (rain > 30) {
-        accessories.push(pick(['☂️ Zober dáždnik pre istotu', '☂️ Malý skladací dáždnik do tašky', '☂️ Možno zaprší — maj dáždnik po ruke']));
+        accessories.push('☂️ Zober si dazdnik pre istotu');
     }
 
-    // Vietor varianty
+    // Vietor
     if (wind > 40) {
-        accessories.push(pick(['🧣 Poriadne sa zabal, fúka!', '💨 Vetrovka nutná!', '🧣 Niečo na krk, silný vietor']));
+        accessories.push('💨 Vetrovka nutna!');
     } else if (wind > 25) {
-        accessories.push(pick(['💨 Vetrovka by sa hodila', '💨 Vietor cítiť, mikina nestačí', '💨 Kapucňa alebo čiapka na hlavu']));
+        accessories.push('💨 Vetrovka by sa hodila');
     }
 
     // Sneh
     if ([71,73,75,77,85,86].includes(code)) {
-        footwear = pick(['👢 Zimná obuv s gripom', '👢 Zateplené topánky', '👢 Snehule']);
-        accessories.push(pick(['🧤 Rukavice', '🧤 Hrubé rukavice', '🧤 Palčiaky']));
+        footwear = '👢 Zimna obuv';
+        accessories.push('🧤 Rukavice');
     }
 
-    // Slnko + UV
+    // UV — okuliare a krem az od UV 6+
     const uvMax = d.uv_index_max?.[0];
     const uvInfo = uvMax != null ? getUvInfo(uvMax) : null;
 
-    if (uvInfo && uvMax >= 3) {
-        accessories.push('🕶️ Slnečné okuliare');
-        if (uvMax >= 6) {
-            accessories.push(`🧴 Opaľovací krém SPF 50+ (UV ${uvInfo.level} — ${uvInfo.text})`);
-            accessories.push(pick(['🧢 Šiltovka / klobúk', '👒 Klobúk proti slnku']));
-        } else if (uvMax >= 3) {
-            accessories.push(`🧴 Opaľovací krém SPF 30+ (UV ${uvInfo.level})`);
-        }
-    } else if (feelsLike > 22 && info.severity === 0) {
-        accessories.push(pick(['🕶️ Slnečné okuliare', '🕶️ Okuliariky na slnko']));
-        if (feelsLike > 26) accessories.push('🧴 Opaľovací krém');
-        if (feelsLike > 28) accessories.push(pick(['🧢 Šiltovka / klobúk', '👒 Klobúk proti slnku']));
+    if (uvInfo && uvMax >= 6) {
+        accessories.push('🕶️ Slnecne okuliare');
+        accessories.push(`🧴 Opalovaci krem SPF 50+ (UV ${uvInfo.level})`);
+        accessories.push('🧢 Siltovka / klobuk');
+    } else if (uvInfo && uvMax >= 8) {
+        accessories.push('🕶️ Slnecne okuliare');
+        accessories.push(`🧴 SPF 50+ — vyhni sa slnku 11-15h`);
+        accessories.push('🧢 Klobuk');
     }
 
     if (!footwear) {
-        if (feelsLike < 5) footwear = pick(['👢 Zateplená obuv', '👢 Zimné topánky', '👢 Kotníkové zateplené']);
-        else if (feelsLike < 18) footwear = pick(['👟 Uzavretá obuv', '👟 Tenisky', '👟 Kotníkové topánky']);
-        else footwear = pick(['👟 Tenisky', '🩴 Sandále', '👟 Ľahká obuv', '👟 Plátené tenisky']);
+        if (feelsLike < 5) footwear = '👢 Zateplena obuv';
+        else if (feelsLike < 18) footwear = '👟 Tenisky';
+        else footwear = '👟 Tenisky / sandale';
     }
 
     return { layers, accessories, footwear, emoji, tip, temp: Math.round(temp), feelsLike: Math.round(feelsLike), rain, wind: Math.round(wind) };

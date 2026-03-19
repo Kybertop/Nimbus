@@ -35,6 +35,7 @@ async function handleInteraction(interaction) {
         if (id === 'setup_units') return showUnitsSelect(interaction);
         if (id === 'setup_notif') return handleNotifAdd(interaction);
         if (id === 'setup_default_view') return showDefaultViewSelect(interaction);
+        if (id === 'setup_display') return showDisplaySelect(interaction);
         if (id === 'setup_voice') return showVoiceSetup(interaction);
         if (id === 'setup_reset') return handleReset(interaction);
         if (id === 'setup_done') return handleSetupDone(interaction);
@@ -55,6 +56,7 @@ async function handleInteraction(interaction) {
         if (interaction.customId.startsWith('city_pick_')) return handleCityPick(interaction);
         if (interaction.customId.startsWith('units_pick_')) return handleUnitsPick(interaction);
         if (interaction.customId.startsWith('default_view_pick_')) return handleDefaultViewPick(interaction);
+        if (interaction.customId.startsWith('display_pick_')) return handleDisplayPick(interaction);
         if (interaction.customId.startsWith('voice_pick_')) return handleVoicePick(interaction);
         if (interaction.customId.startsWith('notif_manage_')) return handleNotifManageSelect(interaction);
         if (interaction.customId.startsWith('fav_pick_')) return handleFavPick(interaction);
@@ -466,15 +468,16 @@ async function handleNastavenia(interaction) {
 
 function buildSettingsButtons(settings) {
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('setup_city').setLabel(settings?.city ? `Zmenit mesto (${settings.city})` : 'Nastavit mesto').setEmoji('📍').setStyle(settings?.city ? ButtonStyle.Secondary : ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('setup_city').setLabel(settings?.city ? `Mesto (${settings.city})` : 'Nastavit mesto').setEmoji('📍').setStyle(settings?.city ? ButtonStyle.Secondary : ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('setup_units').setLabel('Jednotky').setEmoji('🌡️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('setup_fav_add').setLabel('Pridat oblubene').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('setup_default_view').setLabel('Default zobrazenie').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('setup_fav_add').setLabel('Oblubene').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('setup_default_view').setLabel('Default view').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('setup_display').setLabel('Zobrazenie').setEmoji('👁️').setStyle(ButtonStyle.Secondary),
     );
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('setup_notif').setLabel('Pridat notifikaciu').setEmoji('🔔').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('setup_notif').setLabel('Notifikacia').setEmoji('🔔').setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId('setup_voice').setLabel('Voice kanal').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('setup_reset').setLabel('Vymazat vsetko').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('setup_reset').setLabel('Vymazat').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('setup_done').setLabel('Hotovo').setStyle(ButtonStyle.Secondary),
     );
     return [row1, row2];
@@ -524,9 +527,12 @@ async function handleCityPick(interaction) {
 async function showUnitsSelect(interaction) {
     const row = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder().setCustomId(`units_pick_${interaction.user.id}`).setPlaceholder('Jednotky...').addOptions([
-            { label: '°C + km/h', value: 'celsius_kmh', emoji: '🌡️' },
-            { label: '°C + m/s', value: 'celsius_ms', emoji: '🌡️' },
-            { label: '°F + mph', value: 'fahrenheit_mph', emoji: '🌡️' },
+            { label: '°C + km/h', value: 'celsius_kmh', emoji: '🌡️', description: 'Slovensky standard' },
+            { label: '°C + m/s', value: 'celsius_ms', emoji: '🌡️', description: 'Vedecky format' },
+            { label: '°C + mph', value: 'celsius_mph', emoji: '🌡️' },
+            { label: '°F + mph', value: 'fahrenheit_mph', emoji: '🌡️', description: 'Americky standard' },
+            { label: '°F + km/h', value: 'fahrenheit_kmh', emoji: '🌡️' },
+            { label: '°F + m/s', value: 'fahrenheit_ms', emoji: '🌡️' },
         ])
     );
     await interaction.reply({ content: 'Vyber jednotky:', components: [row], ephemeral: true });
@@ -557,6 +563,61 @@ async function handleDefaultViewPick(interaction) {
     db.setUser(interaction.user.id, { default_view: view });
     const labels = { current: 'Aktualne', today: 'Dnes', '7d': '7 dni', '14d': '14 dni' };
     await interaction.update({ content: null, embeds: [embeds.buildSuccessEmbed(`Default zobrazenie: **${labels[view]}**`)], components: [] });
+}
+
+// ─── Display preferences ──────────────────
+
+async function showDisplaySelect(interaction) {
+    const s = db.getUser(interaction.user.id) || {};
+    const display = s.display || {};
+
+    // Zisti aktualne stavy (default = vsetko zapnute)
+    const options = [
+        { label: 'Meniny', value: 'nameday', emoji: '🎂', description: display.nameday === false ? 'Vypnute' : 'Zapnute', default: display.nameday !== false },
+        { label: 'Graf teploty 24h', value: 'graph', emoji: '📊', description: display.graph === false ? 'Vypnute' : 'Zapnute', default: display.graph !== false },
+        { label: 'Vychod / zapad slnka', value: 'sun', emoji: '☀️', description: display.sun === false ? 'Vypnute' : 'Zapnute', default: display.sun !== false },
+        { label: 'UV index', value: 'uv', emoji: '🕶️', description: display.uv === false ? 'Vypnute' : 'Zapnute', default: display.uv !== false },
+    ];
+
+    const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`display_pick_${interaction.user.id}`)
+            .setPlaceholder('Vyber co chces zobrazovat...')
+            .setMinValues(0)
+            .setMaxValues(options.length)
+            .addOptions(options)
+    );
+
+    await interaction.reply({
+        embeds: [new EmbedBuilder().setColor(0x5865F2)
+            .setTitle('👁️ Zobrazenie v /pocasie')
+            .setDescription('Vyber co chces vidiet v embedoch.\nOdznacene polozky sa nebudu zobrazovat.')
+        ],
+        components: [row],
+        ephemeral: true,
+    });
+}
+
+async function handleDisplayPick(interaction) {
+    const selected = interaction.values; // array of selected values
+    const display = {
+        nameday: selected.includes('nameday'),
+        graph: selected.includes('graph'),
+        sun: selected.includes('sun'),
+        uv: selected.includes('uv'),
+    };
+    db.setUser(interaction.user.id, { display });
+
+    const status = [];
+    status.push(`🎂 Meniny: ${display.nameday ? '✅' : '❌'}`);
+    status.push(`📊 Graf: ${display.graph ? '✅' : '❌'}`);
+    status.push(`☀️ Slnko: ${display.sun ? '✅' : '❌'}`);
+    status.push(`🕶️ UV: ${display.uv ? '✅' : '❌'}`);
+
+    await interaction.update({
+        embeds: [embeds.buildSuccessEmbed(`Zobrazenie aktualizovane:\n\n${status.join('\n')}`)],
+        components: [],
+    });
 }
 
 // ─── Voice channel setup ──────────────────

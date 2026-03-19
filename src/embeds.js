@@ -10,17 +10,21 @@ const COLORS = {
 
 function getColorForTemp(temp) {
     if (temp == null) return COLORS.default;
-    if (temp <= -10) return 0x1A237E;  // tmavomodra
-    if (temp <= -5)  return 0x283593;
-    if (temp <= 0)   return 0x1565C0;  // modra
-    if (temp <= 5)   return 0x1E88E5;
-    if (temp <= 10)  return 0x42A5F5;  // svetlomodra
-    if (temp <= 15)  return 0x26A69A;  // teal
-    if (temp <= 20)  return 0x66BB6A;  // zelena
-    if (temp <= 25)  return 0xFFA726;  // oranzova
-    if (temp <= 30)  return 0xEF5350;  // cervena
-    if (temp <= 35)  return 0xD32F2F;  // tmavocervena
-    return 0xB71C1C;                   // extrem
+    // Ak je teplota v Fahrenheit rozsahu (>45 alebo <-20 pri normalnom pocasi), preved na C
+    // Open-Meteo vracia F ked user ma fahrenheit — 54°F = 12°C
+    let c = temp;
+    if (temp > 45 || temp < -30) c = (temp - 32) * 5 / 9;
+    if (c <= -10) return 0x1A237E;
+    if (c <= -5)  return 0x283593;
+    if (c <= 0)   return 0x1565C0;
+    if (c <= 5)   return 0x1E88E5;
+    if (c <= 10)  return 0x42A5F5;
+    if (c <= 15)  return 0x26A69A;
+    if (c <= 20)  return 0x66BB6A;
+    if (c <= 25)  return 0xFFA726;
+    if (c <= 30)  return 0xEF5350;
+    if (c <= 35)  return 0xD32F2F;
+    return 0xB71C1C;
 }
 
 function getColorForWeather(code, isDay = true, temp = null) {
@@ -65,16 +69,18 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
         embed.addFields({ name: '🌧️ Zrážky', value: `${c.precipitation} mm`, inline: true });
     }
 
+    const disp = userSettings?.display || {};
+
     // UV index z daily dat
-    if (dailyData?.daily?.uv_index_max?.[0] != null) {
+    if (disp.uv !== false && dailyData?.daily?.uv_index_max?.[0] != null) {
         const uv = getUvInfo(dailyData.daily.uv_index_max[0]);
         if (uv) {
             embed.addFields({ name: `${uv.emoji} UV ${uv.level}`, value: `**${uv.text}**\n${uv.bar}\n${uv.advice}`, inline: true });
         }
     }
 
-    // Sunrise/sunset s Discord dynamickými timestampmi
-    if (dailyData?.daily) {
+    // Sunrise/sunset
+    if (disp.sun !== false && dailyData?.daily) {
         const d = dailyData.daily;
         const sunrise = d.sunrise?.[0];
         const sunset = d.sunset?.[0];
@@ -86,20 +92,22 @@ function buildCurrentWeatherEmbed(data, userSettings, dailyData = null) {
             const sunsetUnix = Math.floor(sunsetTime.getTime() / 1000);
             let sunText;
             if (now < sunriseTime) {
-                sunText = `🌅 Východ <t:${sunriseUnix}:t> (<t:${sunriseUnix}:R>)\n🌇 Západ <t:${sunsetUnix}:t>`;
+                sunText = `🌅 <t:${sunriseUnix}:t> (<t:${sunriseUnix}:R>)\n🌇 <t:${sunsetUnix}:t> (<t:${sunsetUnix}:R>)`;
             } else if (now < sunsetTime) {
-                sunText = `🌇 Západ <t:${sunsetUnix}:t> (<t:${sunsetUnix}:R>)`;
+                sunText = `🌅 <t:${sunriseUnix}:t>\n🌇 <t:${sunsetUnix}:t> (<t:${sunsetUnix}:R>)`;
             } else {
-                sunText = `🌙 Slnko zapadlo <t:${sunsetUnix}:t>`;
+                sunText = `🌅 <t:${sunriseUnix}:t>\n🌇 <t:${sunsetUnix}:t>`;
             }
             embed.addFields({ name: '☀️ Slnko', value: sunText, inline: true });
         }
     }
 
     // Meniny
-    const nameday = getTodayNameday();
-    if (nameday) {
-        embed.addFields({ name: '🎂 Meniny', value: nameday, inline: true });
+    if (disp.nameday !== false) {
+        const nameday = getTodayNameday();
+        if (nameday) {
+            embed.addFields({ name: '🎂 Meniny', value: nameday, inline: true });
+        }
     }
 
     return embed;
@@ -173,7 +181,7 @@ function buildMultiDayEmbed(data, userSettings) {
 
 // ─── Daily summary ─────────────────────────
 
-function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
+function buildDailySummaryEmbed(hourlyData, dailyData, userSettings, isNotification = false) {
     const d = dailyData.daily;
     const du = dailyData.daily_units || {};
     const tu = du.temperature_2m_max || '°C';
@@ -220,18 +228,23 @@ function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
     const sunsetUnix = sunsetRaw ? Math.floor(new Date(sunsetRaw).getTime() / 1000) : 0;
     const sunText = sunriseUnix ? `↑ <t:${sunriseUnix}:t>  ↓ <t:${sunsetUnix}:t>` : '?';
 
-    const nameday = getTodayNameday();
+    const disp = userSettings?.display || {};
     const fields = [
         { name: '🌡️ Teploty', value: `↑ **${d.temperature_2m_max?.[0]??'?'}${tu}** ↓ ${d.temperature_2m_min?.[0]??'?'}${tu}`, inline: true },
         { name: '💨 Vietor', value: `Max: ${d.wind_speed_10m_max?.[0]??'?'} ${wsu}\nNárazy: ${d.wind_gusts_10m_max?.[0]??'?'} ${wsu}`, inline: true },
-        { name: '🌅 Slnko', value: sunText, inline: true },
     ];
-    if (nameday) fields.push({ name: '🎂 Meniny', value: nameday, inline: true });
+    if (disp.sun !== false) fields.push({ name: '🌅 Slnko', value: sunText, inline: true });
+    if (disp.nameday !== false) {
+        const nameday = getTodayNameday();
+        if (nameday) fields.push({ name: '🎂 Meniny', value: nameday, inline: true });
+    }
 
     // Hodinovy graf teploty
-    const hourlyGraph = buildHourlyGraph(hourlyData, today);
-    if (hourlyGraph) {
-        fields.push({ name: '📊 Teplota 24h', value: hourlyGraph, inline: false });
+    if (disp.graph !== false) {
+        const hourlyGraph = buildHourlyGraph(hourlyData, today);
+        if (hourlyGraph) {
+            fields.push({ name: '📊 Teplota 24h', value: hourlyGraph, inline: false });
+        }
     }
 
     return new EmbedBuilder()
@@ -239,7 +252,7 @@ function buildDailySummaryEmbed(hourlyData, dailyData, userSettings) {
         .setTitle(`${w.emoji}  Ranný prehľad — ${userSettings.city}`)
         .setDescription(summary)
         .addFields(...fields)
-        .setFooter({ text: '🔔 Automatická notifikácia' }).setTimestamp();
+        .setFooter({ text: isNotification ? '🔔 Automaticka notifikacia' : '⛅ Nimbus' }).setTimestamp();
 }
 
 // ─── Air Quality ───────────────────────────

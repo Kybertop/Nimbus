@@ -40,7 +40,7 @@ const els = {};
 const EL_IDS = [
     'sky','skyGradient','stars','sunContainer','moonContainer','cloudsLayer','lightning','horizonGlow',
     'headerTime','weatherLoading','weatherData','weatherIconBig','weatherTemp','weatherDesc','weatherCity',
-    'detailHumidity','detailWind','detailFeels','detailCloud',
+    'currentDetails',
     'cityInput','searchBtn','cityResults',
     'authLogin','authUser','authError','userAvatar','userName','userTag','logoutBtn','userConfig',
     'tempToggle','windToggle','defaultViewToggle',
@@ -195,7 +195,6 @@ function _initCanvas(){
     return !!wCtx;
 }
 let _wRafId=null,_wParticles=[],_wMode=null,_wStartTime=null;
-const W_DURATION=10000;
 
 function _resizeCanvas(){
     if(!weatherCanvas) return;
@@ -342,8 +341,27 @@ async function geocode(query){
     const res=await fetch(url);const data=await res.json();return data.results||[];
 }
 async function fetchWeather(lat,lon,tz='auto'){
-    const vars=['temperature_2m','relative_humidity_2m','apparent_temperature','is_day','precipitation','weather_code','cloud_cover','wind_speed_10m','wind_direction_10m','wind_gusts_10m'].join(',');
-    return (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=${vars}&timezone=${tz}`)).json();
+    const vars=['temperature_2m','relative_humidity_2m','apparent_temperature','is_day','precipitation','weather_code','cloud_cover','wind_speed_10m','wind_direction_10m','wind_gusts_10m','surface_pressure'].join(',');
+    const dailyVars=['sunrise','sunset','uv_index_max','precipitation_probability_max'].join(',');
+    return (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=${vars}&daily=${dailyVars}&timezone=${tz}&forecast_days=1`)).json();
+}
+function getWindDir(deg){
+    const dirs=['S','SSV','SV','VSV','V','VJV','JV','JJV','J','JJZ','JZ','ZJZ','Z','ZSZ','SZ','SSZ'];
+    return dirs[Math.round(deg/22.5)%16];
+}
+function getUvLabel(uv){
+    if(uv<=2) return {text:'Nízky',color:'#4ade80'};
+    if(uv<=5) return {text:'Stredný',color:'#facc15'};
+    if(uv<=7) return {text:'Vysoký',color:'#fb923c'};
+    if(uv<=10) return {text:'Veľmi vysoký',color:'#f87171'};
+    return {text:'Extrémny',color:'#c084fc'};
+}
+function timeUntil(targetDate){
+    const diff=targetDate.getTime()-Date.now();
+    if(diff<0) return null;
+    const h=Math.floor(diff/3600000);const m=Math.floor((diff%3600000)/60000);
+    if(h>0) return `za ${h}h ${m}m`;
+    return `za ${m}m`;
 }
 async function loadWeather(lat,lon,tz,cityName){
     state.lat=lat;state.lon=lon;state.tz=tz;state.city=cityName;
@@ -351,20 +369,18 @@ async function loadWeather(lat,lon,tz,cityName){
     els.weatherLoading.classList.remove('hidden');els.weatherData.classList.add('hidden');
     try{
         const data=await fetchWeather(lat,lon,tz);
-        const c=data.current;const info=WMO[c.weather_code]||WMO[0];
-        state.weatherCode=c.weather_code;state.isDay=c.is_day;
+        const c=data.current;const d=data.daily;const info=WMO[c.weather_code]||WMO[0];
+        state.weatherCode=c.weather_code;state.isDay=c.is_day;state.currentData=c;state.dailyData=d;
         const cityTime=c.time?new Date(c.time):new Date();
-        const cityHour=cityTime.getHours();
-        state.cityHour=cityHour;
+        const cityHour=cityTime.getHours();state.cityHour=cityHour;
         els.weatherIconBig.textContent=info.emoji;
         els.weatherTemp.textContent=`${Math.round(c.temperature_2m)}°C`;
         els.weatherDesc.textContent=wmoText(c.weather_code);
         els.weatherCity.textContent=cityName||`${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-        els.detailHumidity.textContent=`${c.relative_humidity_2m}%`;
-        els.detailWind.textContent=`${Math.round(c.wind_speed_10m)} km/h`;
-        els.detailFeels.textContent=`${Math.round(c.apparent_temperature)}°C`;
-        els.detailCloud.textContent=`${c.cloud_cover}%`;
+        renderCurrentTab(c,d);
         updateSkyScene(c.weather_code,c.is_day,cityHour);scheduleSkyFreeze();
+        if(typeof updateFavicon==='function') updateFavicon();
+        if(radarMap) updateRadarLocation();
         els.weatherLoading.classList.add('hidden');els.weatherData.classList.remove('hidden');
         const defaultView='current';
         switchWeatherTab(defaultView);
@@ -372,6 +388,34 @@ async function loadWeather(lat,lon,tz,cityName){
         console.error('Weather fetch failed:',err);
         els.weatherLoading.innerHTML='<p style="color:#f87171">Počasie sa nepodarilo načítať.</p>';
     }
+}
+function renderCurrentTab(c,d){
+    const windDir=getWindDir(c.wind_direction_10m||0);
+    const sunrise=d?.sunrise?.[0]?new Date(d.sunrise[0]):null;
+    const sunset=d?.sunset?.[0]?new Date(d.sunset[0]):null;
+    const sunriseStr=sunrise?`${String(sunrise.getHours()).padStart(2,'0')}:${String(sunrise.getMinutes()).padStart(2,'0')}`:'—';
+    const sunsetStr=sunset?`${String(sunset.getHours()).padStart(2,'0')}:${String(sunset.getMinutes()).padStart(2,'0')}`:'—';
+    const sunRelative=sunrise&&sunrise.getTime()>Date.now()?timeUntil(sunrise):sunset&&sunset.getTime()>Date.now()?timeUntil(sunset):null;
+    const sunNote=sunrise&&sunrise.getTime()>Date.now()?`(${sunRelative})`:sunset&&sunset.getTime()>Date.now()?`(${sunRelative})`:'';
+    const uv=d?.uv_index_max?.[0];const uvInfo=uv!=null?getUvLabel(uv):null;
+    const pressure=c.surface_pressure?Math.round(c.surface_pressure):null;
+    const nameday=getTodayNameday();
+    const adv=getOutfitAdvice(c.temperature_2m,c.apparent_temperature,c.weather_code,c.wind_speed_10m,d?.precipitation_probability_max?.[0]||0);
+    const accLine=adv.accessories.length?adv.accessories.map(a=>a.replace(/^[^\s]+\s/,'')).join(', '):'';
+    const container=$('currentDetails');
+    if(!container) return;
+    let html='<div class="grid grid-cols-2 gap-2" style="margin-top:8px">';
+    html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">🌡️ Teplota</div><div class="text-sm font-semibold">${Math.round(c.temperature_2m)}°C</div><div class="text-xs" style="color:#6b7fa0">Pocitová: ${Math.round(c.apparent_temperature)}°C</div></div>`;
+    html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">💨 Vietor</div><div class="text-sm font-semibold">${Math.round(c.wind_speed_10m)} km/h ${windDir}</div><div class="text-xs" style="color:#6b7fa0">Nárazy: ${Math.round(c.wind_gusts_10m)} km/h</div></div>`;
+    html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">💧 Vlhkosť</div><div class="text-sm font-semibold">${c.relative_humidity_2m}%</div></div>`;
+    html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">☁️ Oblačnosť</div><div class="text-sm font-semibold">${c.cloud_cover}%</div></div>`;
+    if(pressure) html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">📊 Tlak</div><div class="text-sm font-semibold">${pressure} hPa</div></div>`;
+    if(uvInfo) html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">☀️ UV</div><div class="text-sm font-semibold" style="color:${uvInfo.color}">${uv?.toFixed(1)} · ${uvInfo.text}</div></div>`;
+    html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">🌅 Slnko</div><div class="text-sm font-semibold">↑ ${sunriseStr}  ↓ ${sunsetStr}</div>${sunNote?`<div class="text-xs" style="color:#6b7fa0">${sunNote}</div>`:''}</div>`;
+    if(nameday) html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">🎂 Meniny</div><div class="text-sm font-semibold">${nameday}</div></div>`;
+    html+='</div>';
+    if(accLine) html+=`<div style="margin-top:8px;padding:8px 12px;background:rgba(76,110,245,.08);border:1px solid rgba(76,110,245,.15);border-radius:8px;font-size:12px;color:#8899b0">${accLine}</div>`;
+    container.innerHTML=html;
 }
 
 const tabCache={};const tabInflight=new Set();const TAB_TTL_MS=10*60*1000;const tabFetchTime={};
@@ -475,13 +519,38 @@ async function loadDailyForecast(days){
         const data=await(await fetch(url)).json();const d=data.daily;
         for(let i=0;i<d.time.length;i++){
             const date=new Date(d.time[i]);const info=WMO[d.weather_code[i]]||WMO[0];
-            const row=document.createElement('div');row.className='daily-row';
+            const wrapper=document.createElement('div');wrapper.className='daily-wrapper';
+            const row=document.createElement('div');row.className='daily-row daily-expandable';
             row.innerHTML=`<span class="daily-day">${i===0?'Dnes':['Ne','Po','Ut','St','Št','Pi','So'][date.getDay()]}</span><span class="daily-date">${date.getDate()}.${date.getMonth()+1}.</span><span class="daily-icon">${info.emoji}</span><span class="daily-desc">${wmoText(d.weather_code[i])}</span><span class="daily-temps">${Math.round(d.temperature_2m_max[i])}° <span>${Math.round(d.temperature_2m_min[i])}°</span></span><span class="daily-rain">${d.precipitation_probability_max[i]}%</span>`;
-            content.appendChild(row);
+            const detail=document.createElement('div');detail.className='daily-detail hidden';
+            detail.dataset.date=d.time[i];detail.dataset.loaded='0';
+            row.addEventListener('click',()=>{
+                const wasOpen=!detail.classList.contains('hidden');
+                content.querySelectorAll('.daily-detail').forEach(dd=>{dd.classList.add('hidden');dd.closest('.daily-wrapper')?.querySelector('.daily-row')?.classList.remove('daily-open')});
+                if(!wasOpen){
+                    detail.classList.remove('hidden');row.classList.add('daily-open');
+                    if(detail.dataset.loaded==='0') loadDayHourly(detail,detail.dataset.date);
+                }
+            });
+            wrapper.appendChild(row);wrapper.appendChild(detail);content.appendChild(wrapper);
         }
         tabCache[key]=state.city;
     } catch{content.innerHTML='<div class="empty-state">Načítanie zlyhalo.</div>'}
     tabLoading(`loading${days===7?'7d':'14d'}`,false);
+}
+async function loadDayHourly(container,dateStr){
+    container.innerHTML='<div style="text-align:center;padding:8px"><div class="loading-spinner sm" style="margin:0 auto"></div></div>';
+    try{
+        const url=`https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=${state.tz}&start_date=${dateStr}&end_date=${dateStr}`;
+        const data=await(await fetch(url)).json();const h=data.hourly;
+        let html='';
+        for(let i=0;i<h.time.length;i++){
+            const hour=new Date(h.time[i]).getHours();
+            const info=WMO[h.weather_code[i]]||WMO[0];
+            html+=`<div class="hourly-row hourly-sub"><span class="hourly-time">${String(hour).padStart(2,'0')}:00</span><span class="hourly-icon">${info.emoji}</span><span class="hourly-temp">${Math.round(h.temperature_2m[i])}°C</span><span class="hourly-desc">${wmoText(h.weather_code[i])}</span><span class="hourly-rain">${h.precipitation_probability[i]}%</span><span class="hourly-wind">${Math.round(h.wind_speed_10m[i])}km/h</span></div>`;
+        }
+        container.innerHTML=html;container.dataset.loaded='1';
+    } catch{container.innerHTML='<div class="empty-state">Načítanie zlyhalo.</div>'}
 }
 async function loadTab7d(){await loadDailyForecast(7)}
 async function loadTab14d(){await loadDailyForecast(14)}
@@ -535,35 +604,72 @@ async function loadTabNice(){
     tabInflight.delete('nice');tabLoading('loadingNice',false);
 }
 
-function getOutfitAdvice(temp,feelsLike,code,windSpeed){
-    const layers=[],accessories=[];let tip='';
-    if(feelsLike<0) layers.push('🧥 Ťažký zimný kabát','🧣 Šál','🧤 Rukavice','🎿 Termoprádlo');
-    else if(feelsLike<8) layers.push('🧥 Zimný kabát','🧣 Šál');
-    else if(feelsLike<14) layers.push('🧥 Bunda alebo kabát');
-    else if(feelsLike<18) layers.push('🧶 Ľahká bunda alebo mikina');
-    else if(feelsLike<24) layers.push('👕 Tričko + ľahká vrstva');
-    else layers.push('👕 Tričko','🩳 Kraťasy možné');
-    if([51,53,55,61,63,65,80,81,82].includes(code)) accessories.push('☂️ Dáždnik');
-    if([66,67].includes(code)) accessories.push('🧊 Pozor na ľad');
-    if([71,73,75,85,86].includes(code)){accessories.push('🥾 Nepremokavé topánky');tip='Hustý sneh — oblečte sa teplo a nepremokavo.'}
-    if([95,96,99].includes(code)) tip='Búrka — zvážte zostať doma.';
-    if(windSpeed>40) accessories.push('💨 Vetrovka');
-    if(temp>28){accessories.push('🕶️ Slnečné okuliare','🧴 Opaľovací krém');tip='Horúci deň — pite dostatok tekutín!'}
-    if((WMO[code]||WMO[0]).severity===0&&temp>15) accessories.push('🕶️ Slnečné okuliare');
-    if(!tip&&feelsLike<5) tip='Pocitovo oveľa chladnejšie — oblečte sa podľa pocitovej teploty.';
-    return {layers,accessories,tip};
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function getOutfitAdvice(temp,feelsLike,code,windSpeed,rain){
+    const info=WMO[code]||WMO[0];
+    const layers=[],accessories=[];let footwear='',emoji='',tip='';
+    if(feelsLike<-10){
+        layers.push(pick(['🧥 Hrubá zimná bunda','🧥 Páperová bunda','🧥 Dlhý zimný kabát']));
+        layers.push('🧣 Šál + čiapka + rukavice');
+        layers.push(pick(['👕 Termobielizeň + hrubý sveter','👕 Fleecová mikina + termo vrstva','👕 Vlnený sveter + spodná vrstva']));
+        emoji='🥶';tip=pick(['Dnes radšej čaj do termosky.','Zahrej sa pred odchodom!','Na nose budeš mať červeno.']);
+    } else if(feelsLike<0){
+        layers.push(pick(['🧥 Zimná bunda','🧥 Prešívaná bunda','🧥 Páperová vesta + mikina']));
+        layers.push(pick(['🧣 Šál a čiapka','🧣 Nákrčník + čiapka','🧣 Kapucňa stačí + šál']));
+        layers.push(pick(['👕 Sveter','👕 Hrubá mikina','👕 Rolák']));
+        emoji='❄️';tip=pick(['Mrzne, ale dá sa prežiť!','Ruky do vreciek.','Ideálne počasie na horúcu čokoládu.']);
+    } else if(feelsLike<10){
+        layers.push(pick(['🧥 Prechodná bunda','🧥 Bomber bunda','🧥 Kožená bunda','🧥 Softshell']));
+        layers.push(pick(['👕 Dlhý rukáv + tenký sveter','👕 Mikina','👕 Flanelová košeľa','👕 Hoodie']));
+        emoji='🍂';tip=pick(['Klasické počasie na vrstvenie.','Ráno chladné, poobede OK.','Mikina je tvoj najlepší kamarát.']);
+    } else if(feelsLike<18){
+        layers.push(pick(['🧥 Ľahká bunda','🧥 Mikina na zips','🧥 Tenká vetrovka','🧥 Košeľa cez tričko']));
+        layers.push(pick(['👕 Tričko s dlhým rukávom','👕 Tenká mikina','👕 Polo tričko','👕 Ľanová košeľa']));
+        emoji='🌤️';tip=pick(['Príjemne, ale večer pribal vrstvu.','Ideálne na prechádzku.','Ani zima ani teplo — paráda.']);
+    } else if(feelsLike<25){
+        layers.push(pick(['👕 Tričko','👕 Polo','👕 Ľahká košeľa','👕 Tank top + ľahká košeľa']));
+        layers.push(pick(['👖 Ľahké nohavice','👖 Chinos','👖 Plátené nohavice','👖 Rifle']));
+        emoji='☀️';tip=pick(['Dnešok bude fajn!','Tričko stačí.','Užívaj slnko!','Dnes sa oplatí ísť von.']);
+    } else if(feelsLike<33){
+        layers.push(pick(['👕 Ľahké tričko','👕 Tielko','👕 Vzdušná košeľa']));
+        layers.push(pick(['🩳 Kraťasy','🩳 Šortky','👖 Ľanové nohavice']));
+        emoji='🥵';tip=pick(['Pij veľa vody!','Dnes radšej do tieňa.','Klobúk by nebol na škodu.','Zmrzlina je povinná.']);
+    } else {
+        layers.push(pick(['👕 Minimum oblečenia','👕 Najľahšie čo máš']));
+        layers.push('🩳 Kraťasy / plavky');
+        emoji='🔥';tip=pick(['Extrémne teplo — zostaň v chlade!','Hydratácia je základ.','Vyhýbaj sa poludňajšiemu slnku.']);
+    }
+    if(rain>60){accessories.push(pick(['☂️ Dáždnik je nutnosť!','☂️ Bez dáždnika nechoď!']));footwear=pick(['👢 Nepremokavá obuv','👢 Gumáky','👢 Waterproof topánky'])}
+    else if(rain>30){accessories.push(pick(['☂️ Zober dáždnik pre istotu','☂️ Malý skladací dáždnik do tašky']))}
+    if(windSpeed>40) accessories.push(pick(['🧣 Poriadne sa zabal, fúka!','💨 Vetrovka nutná!']));
+    else if(windSpeed>25) accessories.push(pick(['💨 Vetrovka by sa hodila','💨 Vietor cítiť, mikina nestačí']));
+    if([71,73,75,77,85,86].includes(code)){footwear=pick(['👢 Zimná obuv s gripom','👢 Zateplené topánky','👢 Snehule']);accessories.push(pick(['🧤 Rukavice','🧤 Hrubé rukavice']))}
+    if(feelsLike>22&&info.severity===0){accessories.push(pick(['🕶️ Slnečné okuliare','🕶️ Okuliare s UV filtrom']));if(feelsLike>26) accessories.push(pick(['🧴 Opaľovací krém','🧴 SPF 30+ na tvár']));if(feelsLike>28) accessories.push(pick(['🧢 Šiltovka / klobúk','👒 Klobúk proti slnku']))}
+    if(!footwear){
+        if(feelsLike<5) footwear=pick(['👢 Zateplená obuv','👢 Zimné topánky']);
+        else if(feelsLike<18) footwear=pick(['👟 Uzavretá obuv','👟 Tenisky','👟 Kotníkové topánky']);
+        else footwear=pick(['👟 Tenisky','🩴 Sandále','👟 Ľahká obuv']);
+    }
+    return {layers,accessories,footwear,emoji,tip,temp:Math.round(temp),feelsLike:Math.round(feelsLike),rain,wind:Math.round(windSpeed)};
 }
 
 async function loadTabOutfit(){
     if(isTabFresh('outfit')) return;if(tabInflight.has('outfit')) return;tabInflight.add('outfit');
     tabLoading('loadingOutfit',true);const content=$('contentOutfit');content.innerHTML='';
     try{
-        const data=await(await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation&timezone=${state.tz}`)).json();
-        const c=data.current;const{layers,accessories,tip}=getOutfitAdvice(c.temperature_2m,c.apparent_temperature,c.weather_code,c.wind_speed_10m);
-        let html='<div class="outfit-section">';
-        if(layers.length){html+='<div class="outfit-title">Čo si obliecť</div><div class="outfit-items">';layers.forEach(l=>html+=`<span class="outfit-item">${l}</span>`);html+='</div>'}
-        if(accessories.length){html+='<div class="outfit-title">Nezabudni</div><div class="outfit-items">';accessories.forEach(a=>html+=`<span class="outfit-item">${a}</span>`);html+='</div>'}
-        if(tip) html+=`<div class="outfit-tip">💡 ${tip}</div>`;
+        const [currentRes,dailyRes]=await Promise.all([
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation&timezone=${state.tz}`),
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${state.lat}&longitude=${state.lon}&daily=precipitation_probability_max&timezone=${state.tz}&forecast_days=1`)
+        ]);
+        const currentData=await currentRes.json();const dailyData=await dailyRes.json();
+        const c=currentData.current;const rainProb=dailyData.daily?.precipitation_probability_max?.[0]??0;
+        const adv=getOutfitAdvice(c.temperature_2m,c.apparent_temperature,c.weather_code,c.wind_speed_10m,rainProb);
+        let html=`<div class="outfit-section">`;
+        html+=`<div style="text-align:center;padding:12px 0 8px"><span style="font-size:36px">${adv.emoji}</span><div class="text-sm font-semibold mt-1">${adv.feelsLike}°C pocitová</div><div class="text-xs" style="color:#6b7fa0">${adv.temp}°C skutočná · 💨 ${adv.wind} km/h · 🌧️ ${adv.rain}%</div></div>`;
+        html+='<div class="outfit-title">👕 Oblečenie</div><div class="outfit-items">';adv.layers.forEach(l=>html+=`<span class="outfit-item">${l}</span>`);html+='</div>';
+        html+=`<div class="outfit-title">👟 Obuv</div><div class="outfit-items"><span class="outfit-item">${adv.footwear}</span></div>`;
+        if(adv.accessories.length){html+='<div class="outfit-title">🎒 Doplnky</div><div class="outfit-items">';adv.accessories.forEach(a=>html+=`<span class="outfit-item">${a}</span>`);html+='</div>'}
+        if(adv.tip) html+=`<div class="outfit-tip">💡 ${adv.tip}</div>`;
         html+='</div>';content.innerHTML=html;markTabFresh('outfit');
     } catch{content.innerHTML='<div class="empty-state">Načítanie zlyhalo.</div>'}
     tabInflight.delete('outfit');tabLoading('loadingOutfit',false);
@@ -668,6 +774,132 @@ async function loadTabHistory(){
         markTabFresh('history');
     } catch{content.innerHTML='<div class="empty-state">Načítanie zlyhalo.</div>'}
     tabInflight.delete('history');tabLoading('loadingHistory',false);
+}
+
+let radarMap=null,radarFrames=[],radarLayers=[],radarIdx=0,radarInterval=null,radarPlaying=true;
+let radarActiveType='rain',radarMarker=null;
+
+const RADAR_LEGENDS={
+    rain:{title:'Zrážky (mm/h)',gradient:'linear-gradient(90deg,#00000000,#0000ff,#00d4ff,#00ff00,#ffff00,#ff8c00,#ff0000,#ff00ff)',labels:['0','0.5','1','2','5','10','25','50+']},
+    wind:{title:'Rýchlosť vetra (m/s)',gradient:'linear-gradient(90deg,#ffffff40,#a8d5ff,#64b5f6,#42a5f5,#1e88e5,#f9a825,#ff8f00,#e65100,#b71c1c)',labels:['0','2','5','10','15','20','25','30+']},
+    temp:{title:'Teplota (°C)',gradient:'linear-gradient(90deg,#4a148c,#1565c0,#00838f,#2e7d32,#f9a825,#e65100,#b71c1c,#880e4f)',labels:['-30','-20','-10','0','10','20','30','40+']},
+    cloud:{title:'Oblačnosť (%)',gradient:'linear-gradient(90deg,#00000000,#ffffff20,#ffffff40,#ffffff60,#ffffff80,#ffffffa0,#ffffffc0,#ffffffe0)',labels:['0','15','30','45','60','75','90','100']}
+};
+
+function updateRadarLegend(type){
+    const legend=RADAR_LEGENDS[type];if(!legend) return;
+    const titleEl=$('radarLegendTitle');
+    const gradEl=$('radarLegendGradient');
+    const labelsEl=$('radarLegendLabels');
+    if(titleEl) titleEl.textContent=legend.title;
+    if(gradEl) gradEl.style.background=legend.gradient;
+    if(labelsEl) labelsEl.innerHTML=legend.labels.map(l=>`<span>${l}</span>`).join('');
+}
+
+function openRadar(){
+    if(!state.lat) return;
+    const overlay=$('radarOverlay');if(!overlay) return;
+    overlay.classList.remove('hidden');
+    document.body.classList.add('radar-active');
+    if(typeof L==='undefined'){setTimeout(openRadar,300);return}
+    if(radarMap){radarMap.remove();radarMap=null}
+    if(radarInterval){clearInterval(radarInterval);radarInterval=null}
+    radarFrames=[];radarLayers=[];radarIdx=0;radarPlaying=true;
+    const playBtn=$('radarPlayBtn');if(playBtn) playBtn.textContent='⏸';
+    const cityLabel=$('radarCityLabel');if(cityLabel) cityLabel.textContent=state.city||'';
+    const map=L.map('radarMap',{zoomControl:false,attributionControl:false,maxZoom:12,minZoom:2}).setView([state.lat,state.lon],7);
+    L.control.zoom({position:'bottomright'}).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(map);
+    radarMarker=L.circleMarker([state.lat,state.lon],{radius:6,color:'#4c6ef5',fillColor:'#4c6ef5',fillOpacity:0.8,weight:2}).addTo(map);
+    radarMarker.bindTooltip(state.city||'',{permanent:true,direction:'top',offset:[0,-10],className:'radar-tooltip'});
+    radarMap=map;
+    loadRadarLayer('rain');
+    document.querySelectorAll('.radar-layer-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.layer==='rain'));
+    updateRadarLegend('rain');
+    setTimeout(()=>{if(radarMap) radarMap.invalidateSize()},200);
+}
+
+function closeRadar(){
+    if(radarInterval){clearInterval(radarInterval);radarInterval=null}
+    if(radarMap){radarMap.remove();radarMap=null}
+    radarFrames=[];radarLayers=[];radarMarker=null;
+    $('radarOverlay')?.classList.add('hidden');
+    document.body.classList.remove('radar-active');
+}
+
+function updateRadarLocation(){
+    if(!radarMap||!state.lat) return;
+    radarMap.setView([state.lat,state.lon],7);
+    if(radarMarker){
+        radarMarker.setLatLng([state.lat,state.lon]);
+        radarMarker.setTooltipContent(state.city||'');
+    }
+    const cityLabel=$('radarCityLabel');if(cityLabel) cityLabel.textContent=state.city||'';
+    loadRadarLayer(radarActiveType);
+}
+
+async function loadRadarLayer(type){
+    if(!radarMap) return;
+    radarActiveType=type;
+    if(radarInterval){clearInterval(radarInterval);radarInterval=null}
+    radarLayers.forEach(l=>{if(radarMap.hasLayer(l)) radarMap.removeLayer(l)});
+    radarLayers=[];radarFrames=[];radarIdx=0;
+    updateRadarLegend(type);
+    const timeEl=$('radarTime');
+    const playbackEl=$('radarPlayback');
+
+    if(type==='rain'){
+        if(playbackEl) playbackEl.style.display='flex';
+        if(timeEl) timeEl.textContent='Načítavam…';
+        try{
+            const rvRes=await fetch('https://api.rainviewer.com/public/weather-maps.json');
+            if(!rvRes.ok) throw new Error('API '+rvRes.status);
+            const rv=await rvRes.json();
+            const host=rv.host||'https://tilecache.rainviewer.com';
+            const past=rv.radar?.past||[];const nowcast=rv.radar?.nowcast||[];
+            radarFrames=[...past,...nowcast];
+            if(!radarFrames.length){if(timeEl) timeEl.textContent='Žiadne dáta';return}
+            for(const f of radarFrames){
+                const layer=L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`,{opacity:0,zIndex:10,maxNativeZoom:7,maxZoom:12});
+                layer.addTo(radarMap);
+                radarLayers.push(layer);
+            }
+            radarIdx=radarLayers.length-1;
+            radarLayers[radarIdx].setOpacity(0.85);
+            updateRadarTime();
+            radarPlaying=true;
+            const pb=$('radarPlayBtn');if(pb) pb.textContent='⏸';
+            radarInterval=setInterval(()=>{
+                if(!radarPlaying||!radarMap||!radarLayers.length) return;
+                radarLayers[radarIdx].setOpacity(0);
+                radarIdx=(radarIdx+1)%radarLayers.length;
+                radarLayers[radarIdx].setOpacity(0.85);
+                updateRadarTime();
+            },800);
+        } catch(e){console.error('Radar error:',e);if(timeEl) timeEl.textContent='Radar nedostupný'}
+    } else {
+        if(playbackEl) playbackEl.style.display='none';
+        const owmKey='9de243494c0b295cca9337e1e96b00e2';
+        const layerMap={wind:'wind_new',temp:'temp_new',cloud:'clouds_new'};
+        const opacityMap={wind:0.65,temp:0.65,cloud:0.5};
+        const labels={wind:'Vietor',temp:'Teplota',cloud:'Oblačnosť'};
+        const layer=L.tileLayer(`https://tile.openweathermap.org/map/${layerMap[type]}/{z}/{x}/{y}.png?appid=${owmKey}`,{opacity:opacityMap[type]||0.7,zIndex:10,maxNativeZoom:7,maxZoom:12});
+        layer.addTo(radarMap);radarLayers=[layer];
+        const now=new Date();
+        if(timeEl) timeEl.textContent=`${labels[type]} · ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+}
+
+function updateRadarTime(){
+    const el=$('radarTime');if(!el) return;
+    if(!radarFrames.length||radarIdx>=radarFrames.length){el.textContent='—';return}
+    const frame=radarFrames[radarIdx];
+    if(!frame||!frame.time){el.textContent='—';return}
+    const ts=frame.time*1000;
+    const d=new Date(ts);
+    const now=Math.floor(Date.now()/1000);
+    const isPast=frame.time<=now;
+    el.textContent=`${isPast?'':'🔮 '}${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${d.getDate()}.${d.getMonth()+1}.`;
 }
 
 async function handleCitySearch(){
@@ -1216,6 +1448,16 @@ function initEventListeners(){
         const moon=document.querySelector('.moon');
         if(moon) moon.style.animationPlayState=paused;
     });
+    $('radarOpenBtn')?.addEventListener('click',openRadar);
+    $('radarCloseBtn')?.addEventListener('click',closeRadar);
+    $('radarPlayBtn')?.addEventListener('click',()=>{radarPlaying=!radarPlaying;const pb=$('radarPlayBtn');if(pb) pb.textContent=radarPlaying?'⏸':'▶'});
+    document.querySelectorAll('.radar-layer-btn').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+            document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.remove('active'));
+            btn.classList.add('active');
+            loadRadarLayer(btn.dataset.layer);
+        });
+    });
 }
 
 function init(){
@@ -1236,6 +1478,32 @@ function init(){
     initEventListeners();
     checkAuth();
     tryGeolocation();
+    if(Math.random()<0.01){const tb=document.querySelector('[data-tab="traffic"]');if(tb) tb.textContent='🚗 Doľava'}
+    initFavicon();
+}
+
+const FAVICON_SVGS={
+    sun:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="%23FFD700"/><g stroke="%23FFD700" stroke-width="2" stroke-linecap="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="16" y1="26" x2="16" y2="30"/><line x1="2" y1="16" x2="6" y2="16"/><line x1="26" y1="16" x2="30" y2="16"/><line x1="6.1" y1="6.1" x2="8.9" y2="8.9"/><line x1="23.1" y1="23.1" x2="25.9" y2="25.9"/><line x1="6.1" y1="25.9" x2="8.9" y2="23.1"/><line x1="23.1" y1="8.9" x2="25.9" y2="6.1"/></g></svg>`,
+    moon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M22 4a12 12 0 1 0 0 24A12 12 0 0 1 22 4z" fill="%23e8e4d4"/></svg>`,
+    cloud:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 24h16a6 6 0 0 0 1-11.9A8 8 0 0 0 9 14a6 6 0 0 0-1 10z" fill="%23b0bec5"/></svg>`,
+    rain:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 20h16a6 6 0 0 0 1-11.9A8 8 0 0 0 9 10a6 6 0 0 0-1 10z" fill="%2390a4ae"/><line x1="10" y1="24" x2="9" y2="28" stroke="%234fc3f7" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="24" x2="15" y2="30" stroke="%234fc3f7" stroke-width="2" stroke-linecap="round"/><line x1="22" y1="24" x2="21" y2="28" stroke="%234fc3f7" stroke-width="2" stroke-linecap="round"/></svg>`,
+    lightning:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 18h16a6 6 0 0 0 1-11.9A8 8 0 0 0 9 8a6 6 0 0 0-1 10z" fill="%23616161"/><polygon points="17,18 13,25 16,25 14,32 21,23 17,23 19,18" fill="%23FFD700"/></svg>`
+};
+function initFavicon(){
+    let link=document.querySelector('link[rel="icon"]');
+    if(!link){link=document.createElement('link');link.rel='icon';link.type='image/svg+xml';document.head.appendChild(link)}
+    updateFavicon();
+}
+function updateFavicon(){
+    const link=document.querySelector('link[rel="icon"]');if(!link) return;
+    const code=state.weatherCode;const isDay=state.isDay;const cloudiness=getCloudinessForCode(code);
+    let svg;
+    if([95,96,99].includes(code)) svg=FAVICON_SVGS.lightning;
+    else if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) svg=FAVICON_SVGS.rain;
+    else if(cloudiness>=0.8) svg=FAVICON_SVGS.cloud;
+    else if(!isDay) svg=FAVICON_SVGS.moon;
+    else svg=FAVICON_SVGS.sun;
+    link.href='data:image/svg+xml,'+svg;
 }
 
 document.addEventListener('DOMContentLoaded',init);

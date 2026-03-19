@@ -15,6 +15,8 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="font-inter" style="background:#060a12;color:#e8edf5;">
 
@@ -84,7 +86,10 @@
                 <span class="text-2xl logo-icon">⛅</span>
                 <span class="text-xl font-bold tracking-tight">Nimbus</span>
             </div>
-            <div id="headerTime" class="text-sm font-mono" style="color:#8899b0;"></div>
+            <div class="flex items-center gap-3">
+                <button id="radarOpenBtn" class="radar-open-btn" title="Radar">🗺️</button>
+                <div id="headerTime" class="text-sm font-mono" style="color:#8899b0;"></div>
+            </div>
         </div>
 
         <div id="weatherHero" class="px-5 py-3">
@@ -113,24 +118,7 @@
                             <div id="weatherDesc" class="text-base mt-1" style="color:#8899b0;">Loading…</div>
                             <div id="weatherCity" class="text-sm mt-0.5" style="color:#6b7fa0;">--</div>
                         </div>
-                        <div class="grid grid-cols-2 gap-2 mt-2">
-                            <div class="detail-chip" style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:10px 14px;">
-                                <span class="text-base">💧</span>
-                                <div><div class="text-xs" style="color:#6b7fa0;">Vlhkosť</div><div id="detailHumidity" class="text-sm font-semibold">--%</div></div>
-                            </div>
-                            <div class="detail-chip" style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:10px 14px;">
-                                <span class="text-base">💨</span>
-                                <div><div class="text-xs" style="color:#6b7fa0;">Vietor</div><div id="detailWind" class="text-sm font-semibold">-- km/h</div></div>
-                            </div>
-                            <div class="detail-chip" style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:10px 14px;">
-                                <span class="text-base">🌡️</span>
-                                <div><div class="text-xs" style="color:#6b7fa0;">Pocitová</div><div id="detailFeels" class="text-sm font-semibold">--°C</div></div>
-                            </div>
-                            <div class="detail-chip" style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:10px 14px;">
-                                <span class="text-base">☁️</span>
-                                <div><div class="text-xs" style="color:#6b7fa0;">Oblačnosť</div><div id="detailCloud" class="text-sm font-semibold">--%</div></div>
-                            </div>
-                        </div>
+                        <div id="currentDetails"></div>
                     </div>
                     <div class="tab-pane hidden" id="tabToday"><div class="tab-loading hidden" id="loadingToday"><div class="loading-spinner sm"></div></div><div class="tab-scroll" id="contentToday"></div></div>
                     <div class="tab-pane hidden" id="tab7d"><div class="tab-loading hidden" id="loading7d"><div class="loading-spinner sm"></div></div><div class="tab-scroll" id="content7d"></div></div>
@@ -373,6 +361,33 @@
             <span>·</span>
             <span>Nimbus v2.0</span>
         </div>
+    </div>
+</div>
+
+<div id="radarOverlay" class="radar-overlay hidden">
+    <div id="radarMapContainer" class="radar-map-container">
+        <div id="radarMap" style="width:100%;height:100%"></div>
+        <button id="radarCloseBtn" class="radar-close-btn">✕ Zavrieť</button>
+        <div class="radar-legend" id="radarLegend">
+            <div class="radar-legend-title" id="radarLegendTitle">Zrážky (mm/h)</div>
+            <div class="radar-legend-bar" id="radarLegendBar">
+                <div class="radar-legend-gradient" id="radarLegendGradient"></div>
+                <div class="radar-legend-labels" id="radarLegendLabels"></div>
+            </div>
+        </div>
+        <div class="radar-bottom-bar">
+            <div class="radar-layers">
+                <button class="radar-layer-btn active" data-layer="rain">🌧️ Zrážky</button>
+                <button class="radar-layer-btn" data-layer="wind">💨 Vietor</button>
+                <button class="radar-layer-btn" data-layer="temp">🌡️ Teplota</button>
+                <button class="radar-layer-btn" data-layer="cloud">☁️ Oblaky</button>
+            </div>
+            <div class="radar-playback" id="radarPlayback">
+                <button id="radarPlayBtn" class="radar-tool-btn">⏸</button>
+                <div id="radarTime" class="radar-time"></div>
+            </div>
+        </div>
+        <div class="radar-city-label" id="radarCityLabel"></div>
     </div>
 </div>
 

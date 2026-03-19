@@ -19,7 +19,7 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
     const url = `https://embed.windy.com/embed2.html`
         + `?lat=${lat}&lon=${lon}`
         + `&detailLat=${lat}&detailLon=${lon}`
-        + `&width=800&height=500`
+        + `&width=1000&height=600`
         + `&zoom=9&level=surface`
         + `&overlay=${layer.overlay}&product=${layer.product}`
         + `&menu=&message=&marker=true`
@@ -29,13 +29,13 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
 
     console.log('[RADAR] Spustam browser...');
     const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+        headless: 'shell',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
 
     const page = await browser.newPage();
     try {
-        await page.setViewport({ width: 800, height: 500 });
+        await page.setViewport({ width: 1000, height: 600 });
 
         console.log('[RADAR] Nacitavam Windy:', layerKey);
         // Rovnaky pristup ako v teste co fungoval
@@ -45,19 +45,26 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
         console.log('[RADAR] Cakam 15s na renderovanie...');
         await new Promise(r => setTimeout(r, 15000));
 
-        // Skry UI elementy
+        // Skry vsetky Windy UI elementy
         await page.evaluate(() => {
             const selectors = [
                 '#bottom', '#mobile-calendar', '#embed-zoom',
                 '.logo-wrapper', '#windy-app-promo',
                 '.leaflet-control-zoom', '.leaflet-control-attribution',
                 '.right-border', '.left-border',
+                '#detail', '.progress-bar', '.timecode',
+                '.leaflet-top', '.leaflet-bottom',
+                '.overlay-select', '#plugin-detail',
             ];
             selectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(el => {
                     el.style.setProperty('display', 'none', 'important');
                 });
             });
+            // Skry aj spodny panel cez CSS
+            const style = document.createElement('style');
+            style.textContent = '#bottom, .leaflet-control-container, #embed-zoom, .logo-wrapper { display: none !important; }';
+            document.head.appendChild(style);
         }).catch(() => {});
 
         await new Promise(r => setTimeout(r, 500));
@@ -65,7 +72,12 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
         const filename = `radar_${layerKey}_${Date.now()}.png`;
         const filepath = path.join(OUTPUT_DIR, filename);
 
-        await page.screenshot({ path: filepath, type: 'png' });
+        // Screenshot s orezanim — vyrez cistu mapu bez okrajov
+        await page.screenshot({
+            path: filepath,
+            type: 'png',
+            clip: { x: 0, y: 0, width: 1000, height: 560 },
+        });
         console.log('[RADAR] Screenshot hotovy:', filename);
 
         return { filepath, layer };

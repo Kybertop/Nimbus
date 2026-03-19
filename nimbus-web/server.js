@@ -37,12 +37,37 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
     process.exit(1);
 }
 
-// ── In-memory sessions ────────────────────────────────────────
-const sessions = new Map();
+// ── File-persisted sessions ───────────────────────────────────
+const fs2 = require('fs');
+const SESSIONS_FILE = require('path').join(__dirname, 'data', 'sessions.json');
+
+function loadSessions() {
+    try {
+        const dir = require('path').dirname(SESSIONS_FILE);
+        if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+        if (fs2.existsSync(SESSIONS_FILE)) {
+            const data = JSON.parse(fs2.readFileSync(SESSIONS_FILE, 'utf8'));
+            return new Map(Object.entries(data));
+        }
+    } catch (e) { console.error('Failed to load sessions:', e); }
+    return new Map();
+}
+
+function saveSessions() {
+    try {
+        const dir = require('path').dirname(SESSIONS_FILE);
+        if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+        const obj = Object.fromEntries(sessions);
+        fs2.writeFileSync(SESSIONS_FILE, JSON.stringify(obj), 'utf8');
+    } catch (e) { console.error('Failed to save sessions:', e); }
+}
+
+const sessions = loadSessions();
 
 function createSession(userData) {
     const id = crypto.randomBytes(32).toString('hex');
     sessions.set(id, { ...userData, createdAt: Date.now() });
+    saveSessions();
     return id;
 }
 
@@ -52,7 +77,7 @@ function getSession(req) {
     if (!match) return null;
     const session = sessions.get(match[1]);
     if (!session || Date.now() - session.createdAt > 7 * 24 * 60 * 60 * 1000) {
-        if (match[1]) sessions.delete(match[1]);
+        if (match[1]) { sessions.delete(match[1]); saveSessions(); }
         return null;
     }
     return session;
@@ -158,7 +183,7 @@ app.get('/auth/callback', async (req, res) => {
 app.post('/auth/logout', (req, res) => {
     const raw = req.headers.cookie || '';
     const match = raw.match(/nimbus_session=([a-f0-9]+)/);
-    if (match) sessions.delete(match[1]);
+    if (match) { sessions.delete(match[1]); saveSessions(); }
     clearSessionCookie(res);
     res.json({ ok: true });
 });

@@ -1522,13 +1522,15 @@ async function handlePollDayPick(interaction) {
 
         if (selectedDays.length === 1) {
             const embed = embeds.buildPollEmbed(dd, s, selectedDays[0]);
-            const msg = await interaction.update({ embeds: [embed], components: [], fetchReply: true });
+            await interaction.update({ embeds: [embed], components: [] });
+            const msg = await interaction.fetchReply();
             await msg.react('👍').catch(() => {});
             await msg.react('👎').catch(() => {});
             await msg.react('🤷').catch(() => {});
         } else {
             const embed = embeds.buildMultiPollEmbed(dd, s, selectedDays);
-            const msg = await interaction.update({ embeds: [embed], components: [], fetchReply: true });
+            await interaction.update({ embeds: [embed], components: [] });
+            const msg = await interaction.fetchReply();
             for (let i = 0; i < selectedDays.length && i < 7; i++) {
                 await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
             }

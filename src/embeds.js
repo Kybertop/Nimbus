@@ -450,8 +450,7 @@ function buildHourlyGraph(hourlyData, today) {
     for (let i = 0; i < h.time.length; i++) {
         if (!h.time[i]?.startsWith(today)) continue;
         const hr = new Date(h.time[i]).getHours();
-        // Kazdu 2. hodinu pre citatelnost
-        if (hr % 2 !== 0) continue;
+        if (hr % 3 !== 0) continue;
         temps.push(h.temperature_2m?.[i] ?? 0);
         hours.push(hr);
     }
@@ -459,11 +458,18 @@ function buildHourlyGraph(hourlyData, today) {
     if (temps.length === 0) return null;
 
     const spark = buildSparkline(temps);
-    const labels = hours.map(h => String(h).padStart(2, ' ')).join('');
     const min = Math.min(...temps);
     const max = Math.max(...temps);
 
-    return `\`${spark}\`\n\`${labels}\`h\n↓ ${Math.round(min)}° · ↑ ${Math.round(max)}°`;
+    // Jednoduchsi format: graf + klucove teploty
+    const keyPoints = [];
+    for (let i = 0; i < hours.length; i++) {
+        if (hours[i] === 6 || hours[i] === 12 || hours[i] === 18 || hours[i] === 0) {
+            keyPoints.push(`${hours[i]}h=${Math.round(temps[i])}°`);
+        }
+    }
+
+    return `\`${spark}\` ↓${Math.round(min)}° ↑${Math.round(max)}°\n${keyPoints.join(' · ')}`;
 }
 
 // ─── Loading embed ─────────────────────────

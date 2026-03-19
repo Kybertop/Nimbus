@@ -63,7 +63,8 @@ const commands = [
 
     everywhere(new SlashCommandBuilder()
         .setName('outfit')
-        .setDescription('Čo si obliecť dnes podľa počasia')),
+        .setDescription('Čo si obliecť dnes podľa počasia')
+        .addStringOption(opt => opt.setName('mesto').setDescription('Iné mesto'))),
 
     everywhere(new SlashCommandBuilder()
         .setName('doprava')

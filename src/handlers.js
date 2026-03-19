@@ -132,7 +132,7 @@ function buildWeatherRows(lid, activeTyp = '') {
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`w:aqi:${lid}`).setLabel('Vzduch').setEmoji('🏔️').setStyle(s('aqi')),
         new ButtonBuilder().setCustomId(`w:nice:${lid}`).setLabel('Pekne?').setEmoji('☀️').setStyle(s('nice')),
-        new ButtonBuilder().setCustomId(`w:outfit:${lid}`).setLabel('Oblečenie').setEmoji('👔').setStyle(s('outfit')),
+        new ButtonBuilder().setCustomId(`w:outfit:${lid}`).setLabel('Outfit').setEmoji('👔').setStyle(s('outfit')),
         new ButtonBuilder().setCustomId(`w:traffic:${lid}`).setLabel(trafficLabel).setEmoji('🚗').setStyle(s('traffic')),
         new ButtonBuilder().setCustomId(`w:history:${lid}`).setLabel('vs Priemer').setEmoji('📊').setStyle(s('history')),
     );
@@ -1530,20 +1530,23 @@ async function handleMesiac(interaction) {
 // ═══════════════════════════════════════════
 
 async function handleOutfit(interaction) {
-    const s = db.getUser(interaction.user.id);
-    if (!s?.latitude) return interaction.reply({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], ephemeral: true });
+    const mesto = interaction.options?.getString?.('mesto') || null;
 
     await interaction.deferReply();
+
+    const loc = await resolveLocation(interaction, mesto);
+    if (loc.error) return interaction.editReply({ embeds: [embeds.buildErrorEmbed(loc.error)] });
+
     try {
         const [currentData, dailyData] = await Promise.all([
-            weather.getCurrentWeather(s.latitude, s.longitude, s.timezone || 'auto'),
-            weather.getDailyForecast(s.latitude, s.longitude, s.timezone || 'auto', 1),
+            weather.getCurrentWeather(loc.lat, loc.lon, loc.tz, loc.units),
+            weather.getDailyForecast(loc.lat, loc.lon, loc.tz, 1, loc.units),
         ]);
         const advice = weather.getOutfitAdvice(currentData, dailyData);
-        return interaction.editReply({ embeds: [embeds.buildOutfitEmbed(advice, s)] });
+        return interaction.editReply({ embeds: [embeds.buildOutfitEmbed(advice, loc.settings)] });
     } catch (err) {
         console.error('[OUTFIT]', err);
-        return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Chyba pri načítaní.')] });
+        return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Chyba pri nacitani.')] });
     }
 }
 

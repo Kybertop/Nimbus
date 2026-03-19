@@ -361,21 +361,31 @@ async function handleRadar(interaction) {
     if (!s?.latitude) return interaction.reply({ embeds: [embeds.buildErrorEmbed('Nastav si mesto cez `/nastavenia`')], ephemeral: true });
 
     await interaction.deferReply();
+    await interaction.editReply({ embeds: [embeds.buildLoadingEmbed('Generujem radar...')] }).catch(() => {});
 
     try {
         const radar = require('./radar');
-        const filepath = await radar.generateRadarImage(s.latitude, s.longitude);
+        const { filepath, layer } = await radar.captureWindy(s.latitude, s.longitude, 'radar');
 
         const { AttachmentBuilder } = require('discord.js');
         const attachment = new AttachmentBuilder(filepath, { name: 'radar.png' });
 
         const embed = new EmbedBuilder()
-            .setColor(0x3498DB)
-            .setTitle(`🗺️  Radar zrazok — ${s.city}`)
+            .setColor(layer.color)
+            .setTitle(`🗺️  ${layer.emoji} ${layer.name} — ${s.city}`)
             .setImage('attachment://radar.png')
-            .setFooter({ text: '⛅ Nimbus • RainViewer' }).setTimestamp();
+            .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
 
-        return interaction.editReply({ embeds: [embed], files: [attachment] });
+        const sty = (key) => key === 'radar' ? ButtonStyle.Success : ButtonStyle.Secondary;
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`radar:radar`).setLabel('Radar').setEmoji('🌧️').setStyle(sty('radar')),
+            new ButtonBuilder().setCustomId(`radar:wind`).setLabel('Vietor').setEmoji('💨').setStyle(sty('wind')),
+            new ButtonBuilder().setCustomId(`radar:temp`).setLabel('Teplota').setEmoji('🌡️').setStyle(sty('temp')),
+            new ButtonBuilder().setCustomId(`radar:clouds`).setLabel('Oblacnost').setEmoji('☁️').setStyle(sty('clouds')),
+            new ButtonBuilder().setCustomId(`radar:thunder`).setLabel('Burky').setEmoji('⛈️').setStyle(sty('thunder')),
+        );
+
+        return interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
     } catch (err) {
         console.error('[RADAR]', err);
         return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Nepodarilo sa vygenerovat radar.')] });
@@ -383,8 +393,38 @@ async function handleRadar(interaction) {
 }
 
 async function handleRadarButton(interaction) {
-    // Radar nema buttony — placeholder pre buducnost
-    return interaction.update({});
+    const layerKey = interaction.customId.replace('radar:', '');
+    const s = db.getUser(interaction.user.id);
+    if (!s?.latitude) return interaction.update({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], components: [] });
+
+    await interaction.deferUpdate();
+
+    try {
+        const radar = require('./radar');
+        const { filepath, layer } = await radar.captureWindy(s.latitude, s.longitude, layerKey);
+
+        const { AttachmentBuilder } = require('discord.js');
+        const attachment = new AttachmentBuilder(filepath, { name: 'radar.png' });
+
+        const embed = new EmbedBuilder()
+            .setColor(layer.color)
+            .setTitle(`🗺️  ${layer.emoji} ${layer.name} — ${s.city}`)
+            .setImage('attachment://radar.png')
+            .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
+
+        const sty = (key) => key === layerKey ? ButtonStyle.Success : ButtonStyle.Secondary;
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`radar:radar`).setLabel('Radar').setEmoji('🌧️').setStyle(sty('radar')),
+            new ButtonBuilder().setCustomId(`radar:wind`).setLabel('Vietor').setEmoji('💨').setStyle(sty('wind')),
+            new ButtonBuilder().setCustomId(`radar:temp`).setLabel('Teplota').setEmoji('🌡️').setStyle(sty('temp')),
+            new ButtonBuilder().setCustomId(`radar:clouds`).setLabel('Oblacnost').setEmoji('☁️').setStyle(sty('clouds')),
+            new ButtonBuilder().setCustomId(`radar:thunder`).setLabel('Burky').setEmoji('⛈️').setStyle(sty('thunder')),
+        );
+
+        return interaction.editReply({ embeds: [embed], files: [attachment], components: [row] });
+    } catch (err) {
+        console.error('[RADAR_BTN]', err);
+    }
 }
 
 // ═══════════════════════════════════════════

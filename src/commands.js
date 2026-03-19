@@ -83,6 +83,10 @@ const commands = [
         .addStringOption(opt => opt.setName('mesto').setDescription('Mesto pre server počasie').setRequired(true))
         .addIntegerOption(opt => opt.setName('hodina').setDescription('Hodina odoslania (0-23, default 7)').setMinValue(0).setMaxValue(23))
         .addChannelOption(opt => opt.setName('channel').setDescription('Kanál (default: tento)'))),
+
+    everywhere(new SlashCommandBuilder()
+        .setName('changelog')
+        .setDescription('Co je nove v botovi (owner only)')),
 ];
 
 module.exports = commands.map(c => c.toJSON());

@@ -25,6 +25,7 @@ async function handleInteraction(interaction) {
             case 'mesiac': return handleMesiac(interaction);
             case 'outfit': return handleOutfit(interaction);
             case 'doprava': return handleDoprava(interaction);
+            case 'changelog': return handleChangelog(interaction);
         }
     }
 
@@ -50,6 +51,7 @@ async function handleInteraction(interaction) {
         if (id.startsWith('nw_mode_time_')) return handleNwModeTime(interaction);
         if (id.startsWith('nw_mode_instant_')) return handleNwModeInstant(interaction);
         if (id.startsWith('help_')) return handleHelp(interaction, true);
+        if (id.startsWith('changelog_')) return handleChangelogButton(interaction);
     }
 
     if (interaction.isStringSelectMenu()) {
@@ -1514,10 +1516,27 @@ async function handlePollDayPick(interaction) {
     const s = db.getUser(interaction.user.id);
     if (!s?.latitude) return interaction.update({ embeds: [embeds.buildErrorEmbed('Nastav si mesto!')], components: [] });
 
-    await interaction.update({
-        embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslany!')],
-        components: [],
-    });
+    // Skus poslat verejne do kanala
+    let channel = null;
+    try { channel = interaction.channel || await interaction.client.channels.fetch(interaction.channelId); } catch {}
+
+    if (!channel) {
+        // Fallback — posli priamo ako update
+        try {
+            const maxDay = Math.max(...selectedDays) + 1;
+            const dd = await weather.getDailyForecast(s.latitude, s.longitude, s.timezone || 'auto', maxDay);
+            const embed = selectedDays.length === 1
+                ? embeds.buildPollEmbed(dd, s, selectedDays[0])
+                : embeds.buildMultiPollEmbed(dd, s, selectedDays);
+            return interaction.update({ embeds: [embed], components: [] });
+        } catch (err) {
+            console.error('[POLL]', err);
+            return interaction.update({ embeds: [embeds.buildErrorEmbed('Chyba.')], components: [] });
+        }
+    }
+
+    // Dismiss vyber
+    await interaction.update({ embeds: [embeds.buildSuccessEmbed('🗳️ Poll odoslany!')], components: [] });
 
     try {
         const maxDay = Math.max(...selectedDays) + 1;
@@ -1525,13 +1544,13 @@ async function handlePollDayPick(interaction) {
 
         if (selectedDays.length === 1) {
             const embed = embeds.buildPollEmbed(dd, s, selectedDays[0]);
-            const msg = await interaction.channel.send({ embeds: [embed] });
+            const msg = await channel.send({ embeds: [embed] });
             await msg.react('👍').catch(() => {});
             await msg.react('👎').catch(() => {});
             await msg.react('🤷').catch(() => {});
         } else {
             const embed = embeds.buildMultiPollEmbed(dd, s, selectedDays);
-            const msg = await interaction.channel.send({ embeds: [embed] });
+            const msg = await channel.send({ embeds: [embed] });
             for (let i = 0; i < selectedDays.length && i < 7; i++) {
                 await msg.react(NUMBER_EMOJIS[i]).catch(() => {});
             }
@@ -1640,6 +1659,145 @@ async function handleDoprava(interaction) {
         console.error('[DOPRAVA]', err);
         return interaction.editReply({ embeds: [embeds.buildErrorEmbed('Chyba pri načítaní.')] });
     }
+}
+
+// ═══════════════════════════════════════════
+//  /changelog — owner only
+// ═══════════════════════════════════════════
+
+const BOT_OWNERS = ['252163630576041994', '562024534958538783'];
+
+const CHANGELOG = [
+    {
+        version: '2.0.0',
+        date: '19.03.2026',
+        changes: [
+            { cat: 'Nove', items: [
+                'Notifikacie na fazy mesiaca (nov, spln, stvrt)',
+                'Vystrahy ako kategoria s multi-selectom (dazd, burka, sneh, hmla, vietor, namraza)',
+                'Predpoved na konkretnu hodinu `/pocasie o:14`',
+                'Tlak vzduchu s trendom (stupa/klesa/stabilny)',
+                'Historicke porovnanie — dnes vs 5-rocny priemer',
+                'Hodinovy ASCII graf teploty (24h)',
+                'Voice kanal s automatickym premenovanim podla pocasia',
+                'Default view nastavenie (aktualne/dnes/7d/14d)',
+                'Zobrazenie preferencie (toggle meniny, graf, UV, slnko)',
+                'UV index s SPF odporuceniami (5 urovni)',
+                '/outfit mesto:Praha — outfit pre ine mesto',
+                'Lunarny kalendar na 14 dni',
+                'Interaktivny /help s buttonmi na sekcie',
+            ]},
+            { cat: 'Zmenene', items: [
+                'Pocitova teplota ako samostatny field',
+                'Vlhkost a oblacnost oddelene',
+                'Porovnanie miest — tabulkovy layout s farebnymi sipkami',
+                'Farba embedu podla teploty (modra az cervena)',
+                'Animovane SVG ikony pocasia',
+                'Notifikacie — DM alebo serverovy kanal na vyber',
+                'Notifikacie — upravovanie existujucich (pridaj/odober typy)',
+                'Sekvencne ID notifikacii (1, 2, 3...)',
+                'Jednotky — 6 kombinacii (°C/°F + km/h/m/s/mph)',
+                'Discord dynamicke timestampy pre vychod/zapad',
+                'Outfit — jednoduche slovenske nazvy',
+            ]},
+            { cat: 'Opravene', items: [
+                'Fahrenheit farby embedu (auto-detekcia a prepocet)',
+                'Footer "Automaticka notifikacia" len pri notifikaciach',
+                'null:null v notifikaciach',
+                'Poll funguje v DMs — viditelny pre vsetkych',
+                'API retry s timeoutom a backoffom',
+            ]},
+            { cat: 'Technicke', items: [
+                'User-installable app (funguje vsade — DMs, servery, cudzie DMs)',
+                'Zivy status bota s aktualnou teplotou',
+                'File logging s dennou rotaciou',
+                'Crash recovery s PM2 auto-restartom',
+                'Auto-deploy z GitHubu (npm install + deploy + restart)',
+            ]},
+        ],
+    },
+    {
+        version: '1.0.0',
+        date: '17.03.2026',
+        changes: [
+            { cat: 'Prve vydanie', items: [
+                '12 slash commandov',
+                'Per-user nastavenia a oblubene mesta',
+                'Notifikacny system (denne, vystrahy, slnko)',
+                'Pocasie, vzduch, radar, poll, kanal',
+                'Slovenske meniny',
+            ]},
+        ],
+    },
+];
+
+async function handleChangelog(interaction) {
+    if (!BOT_OWNERS.includes(interaction.user.id)) {
+        return interaction.reply({ embeds: [embeds.buildErrorEmbed('Tento command je len pre ownerov bota.')], ephemeral: true });
+    }
+
+    const latest = CHANGELOG[0];
+    let description = '';
+
+    for (const section of latest.changes) {
+        const items = section.items.map(i => `• ${i}`).join('\n');
+        description += `\n**${section.cat}:**\n${items}\n`;
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`📋 Nimbus v${latest.version} — ${latest.date}`)
+        .setDescription(description.trim())
+        .setFooter({ text: `${CHANGELOG.length} verzii celkovo` }).setTimestamp();
+
+    // Ak je viac verzii, pridaj button na starisie
+    const rows = [];
+    if (CHANGELOG.length > 1) {
+        rows.push(new ActionRowBuilder().addComponents(
+            ...CHANGELOG.slice(0, 5).map((v, i) =>
+                new ButtonBuilder()
+                    .setCustomId(`changelog_${i}`)
+                    .setLabel(`v${v.version}`)
+                    .setStyle(i === 0 ? ButtonStyle.Success : ButtonStyle.Secondary)
+            )
+        ));
+    }
+
+    return interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+}
+
+async function handleChangelogButton(interaction) {
+    if (!BOT_OWNERS.includes(interaction.user.id)) return;
+
+    const idx = parseInt(interaction.customId.replace('changelog_', ''));
+    const ver = CHANGELOG[idx];
+    if (!ver) return;
+
+    let description = '';
+    for (const section of ver.changes) {
+        const items = section.items.map(i => `• ${i}`).join('\n');
+        description += `\n**${section.cat}:**\n${items}\n`;
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`📋 Nimbus v${ver.version} — ${ver.date}`)
+        .setDescription(description.trim())
+        .setFooter({ text: `${CHANGELOG.length} verzii celkovo` }).setTimestamp();
+
+    const rows = [];
+    if (CHANGELOG.length > 1) {
+        rows.push(new ActionRowBuilder().addComponents(
+            ...CHANGELOG.slice(0, 5).map((v, i) =>
+                new ButtonBuilder()
+                    .setCustomId(`changelog_${i}`)
+                    .setLabel(`v${v.version}`)
+                    .setStyle(i === idx ? ButtonStyle.Success : ButtonStyle.Secondary)
+            )
+        ));
+    }
+
+    return interaction.update({ embeds: [embed], components: rows });
 }
 
 module.exports = { handleInteraction };

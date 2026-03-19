@@ -47,15 +47,30 @@ async function captureWindy(lat, lon, layerKey = 'radar') {
 
     try {
         await page.setViewport({ width: 800, height: 500 });
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
 
-        // Pockaj na nacitanie mapy
-        await new Promise(r => setTimeout(r, 4000));
+        // Zablokuj zbytocne requesty pre rychlost
+        await page.setRequestInterception(true);
+        page.on('request', req => {
+            const type = req.resourceType();
+            if (['font', 'stylesheet'].includes(type)) return req.abort();
+            req.continue();
+        });
 
-        // Skry Windy logo/menu ak je tam
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+        // Pockaj na canvas element (mapa sa renderuje do canvas)
+        await page.waitForSelector('canvas', { timeout: 15000 }).catch(() => {});
+
+        // Pockaj na dokoncenie renderingu
+        await new Promise(r => setTimeout(r, 5000));
+
+        // Skry Windy UI elementy
         await page.evaluate(() => {
-            const els = document.querySelectorAll('#bottom, #mobile-calendar, .leaflet-control-container .leaflet-bottom');
-            els.forEach(el => { if (el) el.style.display = 'none'; });
+            const hide = ['#bottom', '#mobile-calendar', '.leaflet-control-container .leaflet-bottom',
+                          '#embed-zoom', '.logo-wrapper', '#windy-app-promo'];
+            hide.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
+            });
         }).catch(() => {});
 
         const filename = `radar_${layerKey}_${Date.now()}.png`;

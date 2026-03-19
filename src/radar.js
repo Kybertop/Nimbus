@@ -54,7 +54,7 @@ function buildUrl(lat, lon, layer) {
         + `?lat=${lat}&lon=${lon}`
         + `&detailLat=${lat}&detailLon=${lon}`
         + `&width=1000&height=600`
-        + `&zoom=9&level=surface`
+        + `&zoom=10&level=surface`
         + `&overlay=${layer.overlay}&product=${layer.product}`
         + `&menu=&message=&marker=true`
         + `&calendar=now&pressure=`

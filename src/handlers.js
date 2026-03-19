@@ -386,8 +386,9 @@ async function handleRadar(interaction) {
         const embed = new EmbedBuilder()
             .setColor(layer.color)
             .setTitle(`🗺️  ${layer.emoji} ${layer.name} — ${s.city}`)
+            .setDescription(`Zmaze sa <t:${deleteAt}:R>`)
             .setImage('attachment://radar.png')
-            .setFooter({ text: `⛅ Nimbus • Windy.com • Zmaze sa <t:${deleteAt}:R>` }).setTimestamp();
+            .setFooter({ text: '⛅ Nimbus • Windy.com' }).setTimestamp();
 
         const sty = (key) => key === defaultLayer ? ButtonStyle.Success : ButtonStyle.Secondary;
         const row = new ActionRowBuilder().addComponents(

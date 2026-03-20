@@ -1578,12 +1578,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     const localitySection=document.getElementById('localitySection');
     const radarBtn=document.getElementById('radarOpenBtn');
 
+    const hamburgerBtn=document.getElementById('hamburgerBtn');
+
     if(settingsBtn) settingsBtn.addEventListener('click',()=>{
         if(typeof closeRadar==='function') try{closeRadar()}catch{}
         settingsPanel.classList.remove('hidden');
         weatherHero.classList.add('hidden');
         if(localitySection) localitySection.classList.add('hidden');
         radarBtn.classList.add('hidden');
+        if(hamburgerBtn) hamburgerBtn.classList.add('hidden');
         settingsBtn.style.opacity='0.5';
         loadSettingsData();
     });
@@ -1592,6 +1595,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         weatherHero.classList.remove('hidden');
         if(localitySection) localitySection.classList.remove('hidden');
         radarBtn.classList.remove('hidden');
+        if(hamburgerBtn) hamburgerBtn.classList.remove('hidden');
         settingsBtn.style.opacity='1';
     });
 

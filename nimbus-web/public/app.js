@@ -1561,6 +1561,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
 
     document.getElementById('sLogout')?.addEventListener('click',async()=>{await fetch('/auth/logout',{method:'POST'});location.reload()});
+    document.getElementById('sCitySearch')?.addEventListener('click',sSearchCity);
+    document.getElementById('sCityInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')sSearchCity()});
     document.getElementById('sAddFav')?.addEventListener('click',()=>document.getElementById('sFavForm')?.classList.toggle('hidden'));
     document.getElementById('sFavSearch')?.addEventListener('click',sSearchFav);
     document.getElementById('sFavInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')sSearchFav()});
@@ -1595,6 +1597,36 @@ async function loadSettingsData(){
         document.getElementById('sDspUv').checked=dsp.uv!==false;
         sRenderFavs();sRenderNotifs();
     }catch(e){console.error(e)}
+}
+
+async function sSearchCity(){
+    const q=document.getElementById('sCityInput').value.trim();if(!q)return;
+    try{
+        const res=await(await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=5&language=en')).json();
+        const r=res.results||[],el=document.getElementById('sCityResults');
+        if(!r.length){el.innerHTML='<div style="padding:10px;font-size:13px;color:#6b7fa0">Žiadne výsledky.</div>';el.classList.remove('hidden');return}
+        el.innerHTML='';
+        r.forEach(c=>{
+            const d=document.createElement('div');d.style.cssText='padding:10px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(59,80,104,.2);transition:background .15s';
+            d.innerHTML='<div>'+c.name+'</div><div style="font-size:11px;color:#6b7fa0">'+[c.admin1,c.country].filter(Boolean).join(', ')+'</div>';
+            d.addEventListener('mouseover',()=>d.style.background='rgba(76,110,245,.08)');
+            d.addEventListener('mouseout',()=>d.style.background='');
+            d.addEventListener('click',()=>sChangeCity({city:c.name+(c.country?', '+c.country:''),latitude:c.latitude,longitude:c.longitude,timezone:c.timezone||'auto'}));
+            el.appendChild(d);
+        });
+        el.classList.remove('hidden');
+    }catch{}
+}
+async function sChangeCity(data){
+    try{
+        await fetch('/api/me',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+        sUserData=Object.assign(sUserData||{},data);
+        document.getElementById('sCity').textContent=data.city;
+        document.getElementById('sCityCoords').textContent=data.latitude.toFixed(4)+', '+data.longitude.toFixed(4)+' · '+data.timezone;
+        document.getElementById('sCityResults').classList.add('hidden');
+        document.getElementById('sCityInput').value='';
+        sShowStatus('Mesto zmenené na '+data.city,'ok');
+    }catch{sShowStatus('Chyba','err')}
 }
 
 function sRenderFavs(){

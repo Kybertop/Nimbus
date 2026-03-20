@@ -45,6 +45,7 @@
             <div class="crater"></div>
             <div class="crater small"></div>
             <div class="crater tiny"></div>
+            <div id="moonPhaseShadow" class="moon-phase-shadow"></div>
         </div>
     </div>
     <div id="cloudsLayer" class="clouds-layer">
@@ -86,6 +87,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <button id="radarOpenBtn" class="radar-open-btn" title="Radar">🗺️</button>
+                <button id="settingsBtn" class="radar-open-btn" title="Nastavenia">⚙️</button>
                 <button id="hamburgerBtn" class="hamburger-btn" aria-label="Menu">
                     <span class="hamburger-line"></span>
                     <span class="hamburger-line"></span>
@@ -109,7 +111,7 @@
                 <div class="mobile-menu-divider"></div>
                 <button class="mobile-menu-item" data-tab="air"><span class="mobile-menu-icon">🏔️</span>Vzduch</button>
                 <button class="mobile-menu-item" data-tab="nice"><span class="mobile-menu-icon">☀️</span>Pekne?</button>
-                <button class="mobile-menu-item" data-tab="outfit"><span class="mobile-menu-icon">👔</span>Obliecť</button>
+                <button class="mobile-menu-item" data-tab="outfit"><span class="mobile-menu-icon">👔</span>Outfit</button>
                 <button class="mobile-menu-item" data-tab="traffic"><span class="mobile-menu-icon">🚗</span>Doprava</button>
                 <div class="mobile-menu-divider"></div>
                 <button class="mobile-menu-item" data-tab="moon"><span class="mobile-menu-icon">🌙</span>Mesiac</button>
@@ -130,7 +132,7 @@
                     <button class="wtab" data-tab="14d">📅 14 dní</button>
                     <button class="wtab" data-tab="air">🏔️ Vzduch</button>
                     <button class="wtab" data-tab="nice">☀️ Pekne?</button>
-                    <button class="wtab" data-tab="outfit">👔 Obliecť</button>
+                    <button class="wtab" data-tab="outfit">👔 Outfit</button>
                     <button class="wtab" data-tab="traffic">🚗 Doprava</button>
                     <button class="wtab" data-tab="moon">🌙 Mesiac</button>
                     <button class="wtab" data-tab="history">📜 História</button>
@@ -158,7 +160,7 @@
             </div>
         </div>
 
-        <div class="px-5 py-3">
+        <div id="localitySection" class="px-5 py-3">
             <div class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7fa0;">📍 Lokalita</div>
             <div class="flex gap-2">
                 <input type="text" id="cityInput" class="nimbus-input flex-1" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;" placeholder="Hľadaj mesto…" autocomplete="off">
@@ -167,219 +169,82 @@
             <div id="cityResults" class="city-results hidden"></div>
         </div>
 
-        <div class="px-5 py-3">
-            <div class="text-xs font-semibold uppercase tracking-wider mb-3" style="color:#6b7fa0;">🤖 Nastavenia bota</div>
-
-            <div id="authLogin">
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:24px;" class="text-center">
-                    <p class="text-sm mb-4" style="color:#8899b0;">Prihlás sa cez Discord a spravuj nastavenia bota.</p>
-                    <a href="/auth/login" class="discord-login-btn">
+        <!-- Settings Panel (hidden by default) -->
+        <div id="settingsPanel" class="hidden" style="padding:16px 20px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;justify-content:center;position:relative">
+                <button id="settingsBack" style="background:none;border:1px solid #3b5068;border-radius:8px;padding:6px 14px;color:#8899b0;font-size:13px;cursor:pointer;font-family:inherit;position:absolute;left:0">← Späť</button>
+                <span style="font-size:18px;font-weight:700">⚙️ Nastavenia</span>
+            </div>
+            <div id="sLoginBox">
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:28px;text-align:center">
+                    <p style="color:#8899b0;margin-bottom:14px;font-size:14px">Prihlás sa cez Discord pre prístup k nastaveniam bota.</p>
+                    <a href="/auth/login" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;background:#5865f2;border-radius:10px;color:#fff;text-decoration:none;font-size:14px;font-weight:600">
                         <svg width="18" height="18" viewBox="0 0 71 55" fill="none"><path d="M60.1 4.9A58.6 58.6 0 0 0 45.6.7a40.3 40.3 0 0 0-1.8 3.6 54.2 54.2 0 0 0-16.2 0A38.6 38.6 0 0 0 25.8.7 58.5 58.5 0 0 0 11.2 4.9C1.6 19.2-.9 33.1.3 46.8a59 59 0 0 0 17.9 9 43.3 43.3 0 0 0 3.8-6.1 38.3 38.3 0 0 1-6-2.8c.5-.4 1-.7 1.5-1.1a42 42 0 0 0 35.8 0l1.5 1.1a38.4 38.4 0 0 1-6 2.9 43 43 0 0 0 3.7 6A58.8 58.8 0 0 0 70.7 46.8C72.1 31 68.2 17.2 60.1 4.9ZM23.7 38.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.2 6.4-7.2 6.5 3.2 6.4 7.2c0 3.9-2.8 7.1-6.4 7.1Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.2 6.4-7.2 6.5 3.2 6.4 7.2c0 3.9-2.8 7.1-6.4 7.1Z" fill="currentColor"/></svg>
                         Prihlásiť sa cez Discord
                     </a>
-                    <div id="authError" class="hidden text-sm mt-3" style="color:#f87171;"></div>
                 </div>
             </div>
-
-            <div id="authUser" class="hidden">
-                <div class="flex items-center gap-3 mb-4" style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;">
-                    <img id="userAvatar" class="w-10 h-10 rounded-full" src="" alt="">
-                    <div class="flex-1 min-w-0">
-                        <div id="userName" class="font-semibold text-sm truncate"></div>
-                        <div id="userTag" class="text-xs" style="color:#6b7fa0;"></div>
-                    </div>
-                    <button id="logoutBtn" class="nimbus-btn-sm nimbus-btn-danger">Odhlásiť</button>
-                </div>
-            </div>
-
-            <div id="userConfig" class="hidden space-y-4">
-                <div class="grid grid-cols-2 gap-3">
-                    <div style="background:#1e293b;border:1px solid #3b5068;border-radius:10px;padding:12px;">
-                        <div class="text-xs font-medium mb-2" style="color:#8899b0;">🌡️ Teplota</div>
-                        <div id="tempToggle" class="toggle-group">
-                            <button class="toggle-btn active" data-value="celsius">°C</button>
-                            <button class="toggle-btn" data-value="fahrenheit">°F</button>
-                        </div>
-                    </div>
-                    <div style="background:#1e293b;border:1px solid #3b5068;border-radius:10px;padding:12px;">
-                        <div class="text-xs font-medium mb-2" style="color:#8899b0;">💨 Rýchlosť vetra</div>
-                        <div id="windToggle" class="toggle-group">
-                            <button class="toggle-btn active" data-value="kmh">km/h</button>
-                            <button class="toggle-btn" data-value="ms">m/s</button>
-                            <button class="toggle-btn" data-value="mph">mph</button>
-                        </div>
+            <div id="sApp" class="hidden">
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <img id="sAvatar" src="" style="width:44px;height:44px;border-radius:50%" alt="">
+                        <div style="flex:1;min-width:0"><div id="sName" style="font-weight:600;font-size:14px"></div><div id="sTag" style="font-size:12px;color:#6b7fa0"></div></div>
+                        <button id="sLogout" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">Odhlásiť</button>
                     </div>
                 </div>
-
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:10px;padding:14px;">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-semibold uppercase tracking-wider" style="color:#6b7fa0;">⭐ Obľúbené mestá</span>
-                        <button id="addFavBtn" class="nimbus-btn-sm">+ Pridať</button>
-                    </div>
-                    <div id="favList"><div class="empty-state">Žiadne obľúbené mestá.</div></div>
-                    <div id="addFavForm" class="hidden mt-3">
-                        <div class="flex gap-2">
-                            <input type="text" id="favCityInput" class="nimbus-input flex-1 text-sm" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;" placeholder="napr. Viedeň">
-                            <button id="favSearchBtn" class="nimbus-btn-sm nimbus-btn-primary">Hľadaj</button>
-                        </div>
-                        <div id="favCityResults" class="city-results hidden"></div>
-                        <button id="cancelFavBtn" class="nimbus-btn-sm mt-2" style="color:#6b7fa0;">Zrušiť</button>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:6px">📍 Aktuálne mesto</div>
+                    <div id="sCity" style="font-size:14px;font-weight:600">—</div>
+                    <div id="sCityCoords" style="font-size:11px;color:#6b7fa0"></div>
+                </div>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:8px">🌡️ Jednotky</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div><div style="font-size:12px;color:#8899b0;margin-bottom:6px">Teplota</div><div id="sTempTg" class="stg"><button class="stb sa" data-v="celsius">°C</button><button class="stb" data-v="fahrenheit">°F</button></div></div>
+                        <div><div style="font-size:12px;color:#8899b0;margin-bottom:6px">Vietor</div><div id="sWindTg" class="stg"><button class="stb sa" data-v="kmh">km/h</button><button class="stb" data-v="ms">m/s</button><button class="stb" data-v="mph">mph</button></div></div>
                     </div>
                 </div>
-
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:10px;padding:14px;">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs font-semibold uppercase tracking-wider" style="color:#6b7fa0;">🔔 Notifikácie</span>
-                        <button id="addNotifBtn" class="nimbus-btn-sm">+ Pridať</button>
-                    </div>
-                    <div id="notifList"><div class="empty-state">Zatiaľ žiadne notifikácie.</div></div>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:8px">📋 Default zobrazenie</div>
+                    <div id="sViewTg" class="stg" style="flex-wrap:wrap"><button class="stb sa" data-v="current">🌡️ Aktuálne</button><button class="stb" data-v="today">📋 Dnes</button><button class="stb" data-v="7d">📆 7 dní</button><button class="stb" data-v="14d">📅 14 dní</button></div>
                 </div>
-
-                <div id="addNotifForm" class="hidden" style="background:#1e293b;border:1px solid #3b5068;border-radius:10px;padding:14px;">
-                    <div class="wizard-step" id="wizStep1">
-                        <div class="text-sm font-semibold mb-3">🔔 Krok 1 — Typ notifikácie</div>
-                        <div id="notifTypeGrid" class="grid gap-2"></div>
-                        <button id="cancelNotifBtn" class="nimbus-btn-sm mt-3" style="color:#6b7fa0;">Zrušiť</button>
-                    </div>
-                    <div class="wizard-step hidden" id="wizStep2Mode">
-                        <div class="text-sm font-semibold mb-3" id="wizStep2ModeTitle">⏰ Krok 2 — Kedy?</div>
-                        <div class="toggle-group mb-3">
-                            <button class="toggle-btn active" id="modeTimedBtn" data-mode="timed">⏰ V konkrétny čas</button>
-                            <button class="toggle-btn" id="modeInstantBtn" data-mode="instant">⚡ Okamžite</button>
-                        </div>
-                        <div id="timeInputRow">
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Čas (HH:MM)</label>
-                            <input type="text" id="notifTime" class="nimbus-input text-sm w-full" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;" placeholder="07:00" maxlength="5">
-                        </div>
-                        <div class="mt-3">
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Cieľ</label>
-                            <div id="destPickerMode" class="toggle-group mb-2">
-                                <button class="toggle-btn active" data-value="channel">📢 Kanál</button>
-                                <button class="toggle-btn" data-value="dm">💬 DM</button>
-                            </div>
-                            <div id="channelPickerMode" class="channel-picker"></div>
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <button id="saveNotifBtn" class="nimbus-btn-primary flex-1">Uložiť</button>
-                            <button id="wizBackBtn2Mode" class="nimbus-btn-sm">← Späť</button>
-                        </div>
-                    </div>
-                    <div class="wizard-step hidden" id="wizStep2Instant">
-                        <div class="text-sm font-semibold mb-3" id="wizStep2InstantTitle">⚡ Krok 2 — Kanál</div>
-                        <div class="mt-2">
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Cieľ</label>
-                            <div id="destPickerInstant" class="toggle-group mb-2">
-                                <button class="toggle-btn active" data-value="channel">📢 Kanál</button>
-                                <button class="toggle-btn" data-value="dm">💬 DM</button>
-                            </div>
-                            <div id="channelPickerInstant" class="channel-picker"></div>
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <button id="saveNotifInstantBtn" class="nimbus-btn-primary flex-1">Uložiť</button>
-                            <button id="wizBackBtn2Instant" class="nimbus-btn-sm">← Späť</button>
-                        </div>
-                    </div>
-                    <div class="wizard-step hidden" id="wizStep2Offset">
-                        <div class="text-sm font-semibold mb-3" id="wizStep2OffsetTitle">⏱️ Krok 2 — Ako skoro?</div>
-                        <label class="text-xs mb-1 block" style="color:#6b7fa0;">Minút pred</label>
-                        <div id="offsetToggle" class="toggle-group flex-wrap mb-3">
-                            <button class="toggle-btn active" data-value="0">Presne</button>
-                            <button class="toggle-btn" data-value="5">5 min</button>
-                            <button class="toggle-btn" data-value="10">10 min</button>
-                            <button class="toggle-btn" data-value="15">15 min</button>
-                            <button class="toggle-btn" data-value="30">30 min</button>
-                            <button class="toggle-btn" data-value="60">60 min</button>
-                        </div>
-                        <div>
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Cieľ</label>
-                            <div id="destPickerOffset" class="toggle-group mb-2">
-                                <button class="toggle-btn active" data-value="channel">📢 Kanál</button>
-                                <button class="toggle-btn" data-value="dm">💬 DM</button>
-                            </div>
-                            <div id="channelPickerOffset" class="channel-picker"></div>
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <button id="saveNotifOffsetBtn" class="nimbus-btn-primary flex-1">Uložiť</button>
-                            <button id="wizBackBtn2Offset" class="nimbus-btn-sm">← Späť</button>
-                        </div>
-                    </div>
-                    <div class="wizard-step hidden" id="wizStep2Changes">
-                        <div class="text-sm font-semibold mb-3">🔄 Krok 2 — Sledovať zmeny</div>
-                        <div id="changeGrid" class="grid grid-cols-2 gap-2 mb-3"></div>
-                        <div>
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Cieľ</label>
-                            <div id="destPickerChanges" class="toggle-group mb-2">
-                                <button class="toggle-btn active" data-value="channel">📢 Kanál</button>
-                                <button class="toggle-btn" data-value="dm">💬 DM</button>
-                            </div>
-                            <div id="channelPickerChanges" class="channel-picker"></div>
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <button id="saveNotifChangesBtn" class="nimbus-btn-primary flex-1">Uložiť</button>
-                            <button id="wizBackBtn2Changes" class="nimbus-btn-sm">← Späť</button>
-                        </div>
-                    </div>
-                    <div class="wizard-step hidden" id="wizStep2Severe">
-                        <div class="text-sm font-semibold mb-3">⚠️ Krok 2 — Typy výstrah</div>
-                        <div id="severeGrid" class="grid grid-cols-2 gap-2 mb-3"></div>
-                        <div class="mt-3">
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Kedy</label>
-                            <div class="toggle-group mb-3">
-                                <button class="toggle-btn active" id="sevModeTimedBtn" data-mode="timed">⏰ Čas</button>
-                                <button class="toggle-btn" id="sevModeInstantBtn" data-mode="instant">⚡ Okamžite</button>
-                            </div>
-                            <div id="sevTimeInputRow">
-                                <label class="text-xs mb-1 block" style="color:#6b7fa0;">Čas (HH:MM)</label>
-                                <input type="text" id="sevNotifTime" class="nimbus-input text-sm w-full" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;" placeholder="07:00" maxlength="5">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Cieľ</label>
-                            <div id="destPickerSevere" class="toggle-group mb-2">
-                                <button class="toggle-btn active" data-value="channel">📢 Kanál</button>
-                                <button class="toggle-btn" data-value="dm">💬 DM</button>
-                            </div>
-                            <div id="channelPickerSevere" class="channel-picker"></div>
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <button id="saveNotifSevereBtn" class="nimbus-btn-primary flex-1">Uložiť</button>
-                            <button id="wizBackBtn2Severe" class="nimbus-btn-sm">← Späť</button>
-                        </div>
-                    </div>
-                    <div class="wizard-step hidden" id="wizStep2Moon">
-                        <div class="text-sm font-semibold mb-3">🌙 Krok 2 — Fázy mesiaca</div>
-                        <div id="moonPhaseGrid" class="grid grid-cols-2 gap-2 mb-3"></div>
-                        <div>
-                            <label class="text-xs mb-1 block" style="color:#6b7fa0;">Cieľ</label>
-                            <div id="destPickerMoon" class="toggle-group mb-2">
-                                <button class="toggle-btn active" data-value="channel">📢 Kanál</button>
-                                <button class="toggle-btn" data-value="dm">💬 DM</button>
-                            </div>
-                            <div id="channelPickerMoon" class="channel-picker"></div>
-                        </div>
-                        <div class="flex gap-2 mt-3">
-                            <button id="saveNotifMoonBtn" class="nimbus-btn-primary flex-1">Uložiť</button>
-                            <button id="wizBackBtn2Moon" class="nimbus-btn-sm">← Späť</button>
-                        </div>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:8px">👁️ Zobrazenie v /pocasie</div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspNameday" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">🎂 Meniny</span></label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspGraph" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">📊 Graf teploty 24h</span></label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspSun" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">☀️ Východ / západ slnka</span></label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspUv" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">🕶️ UV index</span></label>
                     </div>
                 </div>
-
-                <div id="editNotifForm" class="hidden" style="background:#1e293b;border:1px solid #4c6ef5;border-radius:10px;padding:14px;">
-                    <div class="text-sm font-semibold mb-3">✏️ Upraviť notifikáciu</div>
-                    <div id="editNotifContent"></div>
-                    <div class="flex gap-2 mt-3">
-                        <button id="saveEditNotifBtn" class="nimbus-btn-primary flex-1">Uložiť zmeny</button>
-                        <button id="cancelEditNotifBtn" class="nimbus-btn-sm" style="color:#6b7fa0;">Zrušiť</button>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0">⭐ Obľúbené mestá</div><button id="sAddFav" style="padding:4px 10px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">+ Pridať</button></div>
+                    <div id="sFavList"><div style="color:#6b7fa0;font-size:12px">Žiadne obľúbené mestá.</div></div>
+                    <div id="sFavForm" class="hidden" style="margin-top:8px">
+                        <div style="display:flex;gap:6px"><input id="sFavInput" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px 12px;font-size:13px;flex:1;outline:none;font-family:inherit" placeholder="Názov mesta..."><button id="sFavSearch" style="padding:8px 14px;font-size:11px;background:#4c6ef5;border:none;color:#fff;border-radius:6px;cursor:pointer;font-family:inherit">Hľadaj</button></div>
+                        <div id="sFavResults" class="hidden" style="background:#1a2538;border:1px solid #3b5068;border-radius:8px;max-height:200px;overflow-y:auto;margin-top:4px"></div>
                     </div>
                 </div>
-
-                <div class="flex gap-3">
-                    <button id="saveSettingsBtn" class="nimbus-btn-primary flex-1">💾 Uložiť nastavenia</button>
-                    <button id="deleteUserBtn" class="nimbus-btn-danger">🗑️</button>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0">🔔 Notifikácie</div><button id="sAddNotif" style="padding:4px 10px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">+ Pridať</button></div>
+                    <div id="sNotifList"><div style="color:#6b7fa0;font-size:12px">Zatiaľ žiadne notifikácie.</div></div>
+                    <div id="sNotifForm" class="hidden" style="margin-top:12px">
+                        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:6px">Typ notifikácie</div>
+                        <div id="sNotifTypes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px"></div>
+                        <div id="sNotifTimeRow" class="hidden" style="margin-bottom:8px"><div style="font-size:12px;color:#8899b0;margin-bottom:4px">Čas (HH:MM)</div><input id="sNotifTime" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px 12px;font-size:13px;width:120px;outline:none;font-family:inherit" placeholder="07:00" maxlength="5"></div>
+                        <div style="display:flex;gap:6px"><button id="sSaveNotif" style="flex:1;background:#4c6ef5;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Pridať notifikáciu</button><button id="sCancelNotif" style="padding:8px 12px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">Zrušiť</button></div>
+                    </div>
                 </div>
-                <div id="saveStatus" class="hidden text-center text-sm py-2"></div>
+                <div style="display:flex;gap:12px;margin-bottom:10px">
+                    <button id="sSaveAll" style="flex:1;background:#4c6ef5;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">💾 Uložiť nastavenia</button>
+                    <button id="sDelete" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:8px;padding:10px 16px;font-size:13px;cursor:pointer;font-family:inherit">🗑️</button>
+                </div>
+                <div id="sStatus" class="hidden" style="padding:8px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:8px"></div>
             </div>
         </div>
+
+        <!-- Hidden stubs for JS element refs -->
+        <div style="display:none" id="userConfig"><div id="tempToggle"></div><div id="windToggle"></div><div id="favList"></div><div id="addFavForm"><input id="favCityInput"><button id="favSearchBtn"></button><div id="favCityResults"></div><button id="cancelFavBtn"></button></div><button id="addFavBtn"></button><div id="notifList"></div><button id="addNotifBtn"></button><div id="addNotifForm"><div id="wizStep1"><div id="notifTypeGrid"></div><button id="cancelNotifBtn"></button></div><div id="wizStep2Mode"><button id="modeTimedBtn"></button><button id="modeInstantBtn"></button><input id="notifTime"><div id="destPickerMode"></div><div id="channelPickerMode"></div><button id="saveNotifBtn"></button><button id="wizBackBtn2Mode"></button></div><div id="wizStep2Instant"><div id="destPickerInstant"></div><div id="channelPickerInstant"></div><button id="saveNotifInstantBtn"></button><button id="wizBackBtn2Instant"></button></div><div id="wizStep2Offset"><div id="offsetToggle"></div><div id="destPickerOffset"></div><div id="channelPickerOffset"></div><button id="saveNotifOffsetBtn"></button><button id="wizBackBtn2Offset"></button></div><div id="wizStep2Changes"><div id="changeGrid"></div><div id="destPickerChanges"></div><div id="channelPickerChanges"></div><button id="saveNotifChangesBtn"></button><button id="wizBackBtn2Changes"></button></div><div id="wizStep2Severe"><div id="severeGrid"></div><button id="sevModeTimedBtn"></button><button id="sevModeInstantBtn"></button><input id="sevNotifTime"><div id="destPickerSevere"></div><div id="channelPickerSevere"></div><button id="saveNotifSevereBtn"></button><button id="wizBackBtn2Severe"></button></div><div id="wizStep2Moon"><div id="moonPhaseGrid"></div><div id="destPickerMoon"></div><div id="channelPickerMoon"></div><button id="saveNotifMoonBtn"></button><button id="wizBackBtn2Moon"></button></div></div><div id="editNotifForm"><div id="editNotifContent"></div><button id="saveEditNotifBtn"></button><button id="cancelEditNotifBtn"></button></div><button id="saveSettingsBtn"></button><button id="deleteUserBtn"></button><div id="saveStatus"></div></div>
 
         <div class="flex items-center justify-center gap-2 py-4 text-xs" style="color:#6b7fa0;">
             <span>Powered by <a href="https://open-meteo.com" target="_blank" style="color:#8899b0;text-decoration:underline;" onmouseover="this.style.color='#e8edf5'" onmouseout="this.style.color='#8899b0'">Open-Meteo</a></span>

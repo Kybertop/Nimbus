@@ -107,6 +107,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
     },
 }));
 
+app.get('/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
 function requireAuth(req, res, next) {
     const session = getSession(req);
     if (!session) return res.status(401).json({ error: 'Not authenticated' });

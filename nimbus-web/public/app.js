@@ -112,11 +112,12 @@ function getSunPosition(hour){
     const p=(hour-6)/14;
     return {x:10+p*80,y:65-Math.sin(p*Math.PI)*50};
 }
-function getMoonPosition(hour){
+function getMoonPosition(hour,isDay){
+    if(isDay) return null;
     let p;
-    if(hour>=20) p=(hour-20)/(24-20+6);
-    else if(hour<=6) p=(24-20+hour)/(24-20+6);
-    else return null;
+    if(hour>=18) p=(hour-18)/12;
+    else if(hour<6) p=(hour+6)/12;
+    else p=0.5;
     return {x:10+p*80,y:65-Math.sin(p*Math.PI)*45};
 }
 
@@ -147,11 +148,21 @@ function updateSkyScene(weatherCode,isDay,hour){
         els.sunContainer.style.opacity=cloudOpacity>0.5?'0.3':'1';
     } else {els.sunContainer.style.opacity='0'}
 
-    const moonPos=getMoonPosition(hour);
+    const moonPos=getMoonPosition(hour,isDay);
     if(moonPos&&!isDay&&cloudOpacity<0.8){
         els.moonContainer.style.left=moonPos.x+'%';
         els.moonContainer.style.top=moonPos.y+'%';
         els.moonContainer.style.opacity=cloudOpacity>0.5?'0.3':'1';
+        const moonEl=document.getElementById('moon');
+        if(moonEl){
+            const mp=getMoonPhase();
+            const svg=renderMoonSvg(mp.phase,mp.waxing,80);
+            moonEl.innerHTML=svg;
+            moonEl.style.background='none';
+            const glowStrength=Math.max(0.05,mp.phase/100*0.3);
+            moonEl.style.boxShadow=`0 0 ${20+mp.phase/2}px ${5+mp.phase/4}px rgba(220,220,200,${glowStrength}),0 0 ${40+mp.phase}px ${15+mp.phase/3}px rgba(200,200,180,${glowStrength*0.4})`;
+            moonEl.style.borderRadius='50%';
+        }
     } else {els.moonContainer.style.opacity='0'}
 
     els.cloudsLayer.querySelectorAll('.cloud').forEach((c,i)=>{
@@ -389,6 +400,31 @@ async function loadWeather(lat,lon,tz,cityName){
         els.weatherLoading.innerHTML='<p style="color:#f87171">Počasie sa nepodarilo načítať.</p>';
     }
 }
+function renderMoonSvg(illumination,waxing,size=24){
+    const r=size/2;const cx=r;const cy=r;
+    const illum=Math.max(0,Math.min(100,illumination))/100;
+    const s=size/24;
+    const dark='#1e2430';
+    if(illum<0.01) return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="${dark}"/></svg>`;
+    if(illum>0.99){
+        const surface=`<circle cx="${9*s}" cy="${8*s}" r="${3.5*s}" fill="#c8c0a0" opacity="0.4"/><circle cx="${15*s}" cy="${6*s}" r="${2*s}" fill="#bab298" opacity="0.35"/><circle cx="${7*s}" cy="${15*s}" r="${2.8*s}" fill="#c0b89c" opacity="0.3"/><circle cx="${16*s}" cy="${14*s}" r="${2.2*s}" fill="#b8b090" opacity="0.35"/><circle cx="${12*s}" cy="${11*s}" r="${1.8*s}" fill="#b0a888" opacity="0.3"/>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#e8e4d4"/>${surface}</svg>`;
+    }
+    const f=illum*2-1;
+    const bulgeRx=Math.max(0.1,Math.abs(f)*r);
+    const top=`${cx},0`;
+    const bot=`${cx},${size}`;
+    let litPath;
+    if(waxing){
+        litPath=`M ${top} A ${r},${r} 0 0,0 ${bot} A ${bulgeRx},${r} 0 0,${f>=0?0:1} ${top} Z`;
+    } else {
+        litPath=`M ${top} A ${r},${r} 0 0,1 ${bot} A ${bulgeRx},${r} 0 0,${f>=0?1:0} ${top} Z`;
+    }
+    const surface=`<circle cx="${9*s}" cy="${8*s}" r="${3.5*s}" fill="#c8c0a0" opacity="0.4"/><circle cx="${15*s}" cy="${6*s}" r="${2*s}" fill="#bab298" opacity="0.35"/><circle cx="${7*s}" cy="${15*s}" r="${2.8*s}" fill="#c0b89c" opacity="0.3"/>`;
+    const clipId=`mc${Math.random().toString(36).slice(2,8)}`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><defs><clipPath id="${clipId}"><path d="${litPath}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="${dark}"/><g clip-path="url(#${clipId})"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#e8e4d4"/>${surface}</g></svg>`;
+}
+
 function renderCurrentTab(c,d){
     const windDir=getWindDir(c.wind_direction_10m||0);
     const sunrise=d?.sunrise?.[0]?new Date(d.sunrise[0]):null;
@@ -400,6 +436,8 @@ function renderCurrentTab(c,d){
     const uv=d?.uv_index_max?.[0];const uvInfo=uv!=null?getUvLabel(uv):null;
     const pressure=c.surface_pressure?Math.round(c.surface_pressure):null;
     const nameday=getTodayNameday();
+    const moon=getMoonPhase();
+    const moonSvg=renderMoonSvg(moon.phase,moon.waxing,30);
     const adv=getOutfitAdvice(c.temperature_2m,c.apparent_temperature,c.weather_code,c.wind_speed_10m,d?.precipitation_probability_max?.[0]||0);
     const accLine=adv.accessories.length?adv.accessories.map(a=>a.replace(/^[^\s]+\s/,'')).join(', '):'';
     const container=$('currentDetails');
@@ -412,9 +450,10 @@ function renderCurrentTab(c,d){
     if(pressure) html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">📊 Tlak</div><div class="text-sm font-semibold">${pressure} hPa</div></div>`;
     if(uvInfo) html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">☀️ UV</div><div class="text-sm font-semibold" style="color:${uvInfo.color}">${uv?.toFixed(1)} · ${uvInfo.text}</div></div>`;
     html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">🌅 Slnko</div><div class="text-sm font-semibold">↑ ${sunriseStr}  ↓ ${sunsetStr}</div>${sunNote?`<div class="text-xs" style="color:#6b7fa0">${sunNote}</div>`:''}</div>`;
-    if(nameday) html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">🎂 Meniny</div><div class="text-sm font-semibold">${nameday}</div></div>`;
+    html+=`<div style="background:#253648;border:1px solid #3b5068;border-radius:10px;padding:8px 12px"><div class="text-xs" style="color:#6b7fa0">🌙 Mesiac</div><div class="text-sm font-semibold" style="display:flex;align-items:center;gap:6px">${moonSvg} ${moon.name} · ${moon.phase}%</div></div>`;
     html+='</div>';
-    if(accLine) html+=`<div style="margin-top:8px;padding:8px 12px;background:rgba(76,110,245,.08);border:1px solid rgba(76,110,245,.15);border-radius:8px;font-size:12px;color:#8899b0">${accLine}</div>`;
+    if(nameday) html+=`<div style="margin-top:8px;padding:8px 12px;background:#253648;border:1px solid #3b5068;border-radius:8px;font-size:13px;color:#e8edf5"><span style="color:#6b7fa0">🎂 Meniny:</span> <b>${nameday}</b></div>`;
+    if(accLine) html+=`<div style="margin-top:6px;padding:8px 12px;background:rgba(76,110,245,.08);border:1px solid rgba(76,110,245,.15);border-radius:8px;font-size:12px;color:#8899b0">${accLine}</div>`;
     container.innerHTML=html;
 }
 
@@ -705,22 +744,22 @@ async function loadTabTraffic(){
 }
 
 function getMoonPhase(date=new Date()){
-    const known=new Date(2000,0,6,18,14);
-    const diff=date.getTime()-known.getTime();
+    const refNewMoon=Date.UTC(2000,0,6,18,14,0);
     const synodicMonth=29.53058867;
-    const phase=(((diff/86400000)%synodicMonth)+synodicMonth)%synodicMonth;
-    const pct=Math.round((phase/synodicMonth)*100);
+    const daysSince=(date.getTime()-refNewMoon)/86400000;
+    const phase=((daysSince%synodicMonth)+synodicMonth)%synodicMonth;
+    const illumination=Math.round(50*(1-Math.cos(2*Math.PI*phase/synodicMonth)));
+    const waxing=phase<synodicMonth/2;
     let name,emoji;
-    if(phase<1.85){name='Nov';emoji='🌑'}
-    else if(phase<7.38){name='Dorastajúci kosáčik';emoji='🌒'}
-    else if(phase<9.23){name='Prvá štvrť';emoji='🌓'}
-    else if(phase<14.77){name='Dorastajúci mesiac';emoji='🌔'}
-    else if(phase<16.61){name='Spln';emoji='🌕'}
-    else if(phase<22.15){name='Ubúdajúci mesiac';emoji='🌖'}
-    else if(phase<23.99){name='Posledná štvrť';emoji='🌗'}
-    else if(phase<27.68){name='Ubúdajúci kosáčik';emoji='🌘'}
-    else{name='Nov';emoji='🌑'}
-    return {name,emoji,phase:pct,synodicDay:Math.round(phase)};
+    if(illumination<=2){name='Nov';emoji='🌑'}
+    else if(illumination>=98){name='Spln';emoji='🌕'}
+    else if(waxing&&illumination<45){name='Dorastajúci kosáčik';emoji='🌒'}
+    else if(waxing&&illumination<55){name='Prvá štvrť';emoji='🌓'}
+    else if(waxing){name='Dorastajúci mesiac';emoji='🌔'}
+    else if(!waxing&&illumination>55){name='Ubúdajúci mesiac';emoji='🌖'}
+    else if(!waxing&&illumination>45){name='Posledná štvrť';emoji='🌗'}
+    else{name='Ubúdajúci kosáčik';emoji='🌘'}
+    return {name,emoji,phase:illumination,synodicDay:Math.round(phase),daysSince:phase,waxing};
 }
 
 async function loadTabMoon(){
@@ -733,7 +772,8 @@ async function loadTabMoon(){
         const moon=getMoonPhase(d);
         const dn=dayNames[d.getDay()];
         const dateStr=`${d.getDate()}.${d.getMonth()+1}.`;
-        html+=`<div class="moon-day-row"><span class="moon-day-date">${dn} ${dateStr}</span><span class="moon-day-emoji">${moon.emoji}</span><span class="moon-day-name">${moon.name}</span><span class="moon-day-phase">Deň ${moon.synodicDay} · ${moon.phase}%</span></div>`;
+        const moonSvg=renderMoonSvg(moon.phase,moon.waxing,22);
+        html+=`<div class="moon-day-row"><span class="moon-day-date">${dn} ${dateStr}</span><span class="moon-day-emoji">${moonSvg}</span><span class="moon-day-name">${moon.name}</span><span class="moon-day-phase">Deň ${moon.synodicDay} · ${moon.phase}%</span></div>`;
     }
     html+='</div>';content.innerHTML=html;
     markTabFresh('moon');tabLoading('loadingMoon',false);
@@ -862,19 +902,19 @@ function selectCity(result){
 }
 
 function showAuthState(loggedIn){
-    els.authLogin.classList.toggle('hidden',loggedIn);
-    els.authUser.classList.toggle('hidden',!loggedIn);
-    els.userConfig.classList.toggle('hidden',!loggedIn);
+    els.authLogin?.classList?.toggle('hidden',loggedIn);
+    els.authUser?.classList?.toggle('hidden',!loggedIn);
+    els.userConfig?.classList?.toggle('hidden',!loggedIn);
 }
 async function checkAuth(){
     const params=new URLSearchParams(window.location.search);
-    if(params.get('auth')==='denied'){els.authError.textContent='Prihlásenie zrušené.';els.authError.classList.remove('hidden')}
-    else if(params.get('auth')==='error'){els.authError.textContent='Prihlásenie zlyhalo.';els.authError.classList.remove('hidden')}
     if(params.has('auth')) window.history.replaceState({},'','/');
     try{
         const res=await fetch('/auth/me');if(!res.ok){showAuthState(false);return}
         const user=await res.json();state.discordUser=user;
-        els.userAvatar.src=user.avatarUrl;els.userName.textContent=user.displayName;els.userTag.textContent=`@${user.username}`;
+        if(els.userAvatar) els.userAvatar.src=user.avatarUrl;
+        if(els.userName) els.userName.textContent=user.displayName;
+        if(els.userTag) els.userTag.textContent='@'+user.username;
         showAuthState(true);await loadUserSettings();
     } catch{showAuthState(false)}
 }
@@ -1334,43 +1374,43 @@ function loadDefaultWeather(){loadWeather(48.1482,17.1067,'Europe/Bratislava','B
 
 function initEventListeners(){
     $('weatherTabs')?.addEventListener('click',e=>{const btn=e.target.closest('.wtab');if(btn) switchWeatherTab(btn.dataset.tab)});
-    els.searchBtn.addEventListener('click',handleCitySearch);
-    els.cityInput.addEventListener('keydown',e=>{if(e.key==='Enter') handleCitySearch()});
+    els.searchBtn?.addEventListener('click',handleCitySearch);
+    els.cityInput?.addEventListener('keydown',e=>{if(e.key==='Enter') handleCitySearch()});
     document.addEventListener('click',e=>{
-        if(!els.cityResults.contains(e.target)&&e.target!==els.cityInput&&e.target!==els.searchBtn) els.cityResults.classList.add('hidden');
-        if(!els.favCityResults.contains(e.target)&&e.target!==els.favCityInput&&e.target!==els.favSearchBtn) els.favCityResults.classList.add('hidden');
+        if(els.cityResults&&!els.cityResults.contains(e.target)&&e.target!==els.cityInput&&e.target!==els.searchBtn) els.cityResults.classList.add('hidden');
+        if(els.favCityResults&&!els.favCityResults.contains(e.target)&&e.target!==els.favCityInput&&e.target!==els.favSearchBtn) els.favCityResults.classList.add('hidden');
     });
-    els.logoutBtn.addEventListener('click',handleLogout);
+    els.logoutBtn?.addEventListener('click',handleLogout);
     [els.tempToggle,els.windToggle].forEach(group=>{
         group?.addEventListener('click',e=>{const btn=e.target.closest('.toggle-btn');if(!btn) return;group.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active')});
     });
-    els.addFavBtn.addEventListener('click',()=>{els.addFavForm.classList.toggle('hidden');els.favCityResults.classList.add('hidden')});
-    els.cancelFavBtn.addEventListener('click',()=>{els.addFavForm.classList.add('hidden');els.favCityInput.value='';els.favCityResults.classList.add('hidden')});
-    els.favSearchBtn.addEventListener('click',handleFavSearch);
-    els.favCityInput.addEventListener('keydown',e=>{if(e.key==='Enter') handleFavSearch()});
-    els.addNotifBtn.addEventListener('click',openNotifWizard);
-    els.cancelNotifBtn.addEventListener('click',closeNotifWizard);
-    els.wizBackBtn2Mode.addEventListener('click',()=>showWizardStep('wizStep1'));
-    els.wizBackBtn2Instant.addEventListener('click',()=>showWizardStep('wizStep1'));
-    els.wizBackBtn2Offset.addEventListener('click',()=>showWizardStep('wizStep1'));
-    els.wizBackBtn2Changes.addEventListener('click',()=>showWizardStep('wizStep1'));
-    els.wizBackBtn2Severe.addEventListener('click',()=>showWizardStep('wizStep1'));
-    els.wizBackBtn2Moon.addEventListener('click',()=>showWizardStep('wizStep1'));
-    els.modeTimedBtn.addEventListener('click',()=>setWizMode('timed'));
-    els.modeInstantBtn.addEventListener('click',()=>setWizMode('instant'));
-    els.sevModeTimedBtn.addEventListener('click',()=>setSevMode('timed'));
-    els.sevModeInstantBtn.addEventListener('click',()=>setSevMode('instant'));
-    els.offsetToggle.addEventListener('click',e=>{const btn=e.target.closest('.toggle-btn');if(!btn) return;els.offsetToggle.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active')});
-    els.saveNotifBtn.addEventListener('click',saveNotifScheduled);
-    els.saveNotifInstantBtn.addEventListener('click',saveNotifInstant);
-    els.saveNotifOffsetBtn.addEventListener('click',saveNotifOffset);
-    els.saveNotifChangesBtn.addEventListener('click',saveNotifChanges);
-    els.saveNotifSevereBtn.addEventListener('click',saveNotifSevere);
-    els.saveNotifMoonBtn.addEventListener('click',saveNotifMoon);
-    els.saveEditNotifBtn.addEventListener('click',saveEditNotif);
-    els.cancelEditNotifBtn.addEventListener('click',()=>{els.editNotifForm.classList.add('hidden');editingNotifId=null});
-    els.saveSettingsBtn.addEventListener('click',saveSettings);
-    els.deleteUserBtn.addEventListener('click',deleteUser);
+    els.addFavBtn?.addEventListener('click',()=>{els.addFavForm?.classList.toggle('hidden');els.favCityResults?.classList.add('hidden')});
+    els.cancelFavBtn?.addEventListener('click',()=>{els.addFavForm?.classList.add('hidden');if(els.favCityInput)els.favCityInput.value='';els.favCityResults?.classList.add('hidden')});
+    els.favSearchBtn?.addEventListener('click',handleFavSearch);
+    els.favCityInput?.addEventListener('keydown',e=>{if(e.key==='Enter') handleFavSearch()});
+    els.addNotifBtn?.addEventListener('click',openNotifWizard);
+    els.cancelNotifBtn?.addEventListener('click',closeNotifWizard);
+    els.wizBackBtn2Mode?.addEventListener('click',()=>showWizardStep('wizStep1'));
+    els.wizBackBtn2Instant?.addEventListener('click',()=>showWizardStep('wizStep1'));
+    els.wizBackBtn2Offset?.addEventListener('click',()=>showWizardStep('wizStep1'));
+    els.wizBackBtn2Changes?.addEventListener('click',()=>showWizardStep('wizStep1'));
+    els.wizBackBtn2Severe?.addEventListener('click',()=>showWizardStep('wizStep1'));
+    els.wizBackBtn2Moon?.addEventListener('click',()=>showWizardStep('wizStep1'));
+    els.modeTimedBtn?.addEventListener('click',()=>setWizMode('timed'));
+    els.modeInstantBtn?.addEventListener('click',()=>setWizMode('instant'));
+    els.sevModeTimedBtn?.addEventListener('click',()=>setSevMode('timed'));
+    els.sevModeInstantBtn?.addEventListener('click',()=>setSevMode('instant'));
+    els.offsetToggle?.addEventListener('click',e=>{const btn=e.target.closest('.toggle-btn');if(!btn) return;els.offsetToggle.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active')});
+    els.saveNotifBtn?.addEventListener('click',saveNotifScheduled);
+    els.saveNotifInstantBtn?.addEventListener('click',saveNotifInstant);
+    els.saveNotifOffsetBtn?.addEventListener('click',saveNotifOffset);
+    els.saveNotifChangesBtn?.addEventListener('click',saveNotifChanges);
+    els.saveNotifSevereBtn?.addEventListener('click',saveNotifSevere);
+    els.saveNotifMoonBtn?.addEventListener('click',saveNotifMoon);
+    els.saveEditNotifBtn?.addEventListener('click',saveEditNotif);
+    els.cancelEditNotifBtn?.addEventListener('click',()=>{els.editNotifForm?.classList.add('hidden');editingNotifId=null});
+    els.saveSettingsBtn?.addEventListener('click',saveSettings);
+    els.deleteUserBtn?.addEventListener('click',deleteUser);
     setupDestToggle('destPickerMode','channelPickerMode');
     setupDestToggle('destPickerInstant','channelPickerInstant');
     setupDestToggle('destPickerOffset','channelPickerOffset');
@@ -1426,11 +1466,16 @@ function init(){
     const hour=new Date().getHours();
     updateSkyScene(0,hour>=6&&hour<20?1:0,hour);
     startClock();
-    let _lastSkyHour=-1;
+    let _lastSkyMin=-1;
     setInterval(()=>{
         const h=state.cityHour!=null?state.cityHour:new Date().getHours();
-        if(h!==_lastSkyHour){_lastSkyHour=h;updateSkyScene(state.weatherCode,state.isDay,h)}
-    },60000);
+        const min=new Date().getMinutes();
+        const skyKey=h*60+min;
+        if(Math.abs(skyKey-_lastSkyMin)<1) return;
+        _lastSkyMin=skyKey;
+        updateSkyScene(state.weatherCode,state.isDay,h);
+        if(typeof updateFavicon==='function') updateFavicon();
+    },30000);
     function tryEntry(){
         if(typeof gsap!=='undefined') playEntryAnimation();
         else setTimeout(tryEntry,200);
@@ -1445,7 +1490,7 @@ function init(){
 
 const FAVICON_SVGS={
     sun:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="7" fill="%23FFD700"/><g stroke="%23FFD700" stroke-width="2" stroke-linecap="round"><line x1="16" y1="2" x2="16" y2="6"/><line x1="16" y1="26" x2="16" y2="30"/><line x1="2" y1="16" x2="6" y2="16"/><line x1="26" y1="16" x2="30" y2="16"/><line x1="6.1" y1="6.1" x2="8.9" y2="8.9"/><line x1="23.1" y1="23.1" x2="25.9" y2="25.9"/><line x1="6.1" y1="25.9" x2="8.9" y2="23.1"/><line x1="23.1" y1="8.9" x2="25.9" y2="6.1"/></g></svg>`,
-    moon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M22 4a12 12 0 1 0 0 24A12 12 0 0 1 22 4z" fill="%23e8e4d4"/></svg>`,
+    moon:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M22 4a12 12 0 1 0 0 24A12 12 0 0 1 22 4z" fill="%23f0ead0" stroke="%23d4ceb0" stroke-width="0.5"/></svg>`,
     cloud:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 24h16a6 6 0 0 0 1-11.9A8 8 0 0 0 9 14a6 6 0 0 0-1 10z" fill="%23b0bec5"/></svg>`,
     rain:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 20h16a6 6 0 0 0 1-11.9A8 8 0 0 0 9 10a6 6 0 0 0-1 10z" fill="%2390a4ae"/><line x1="10" y1="24" x2="9" y2="28" stroke="%234fc3f7" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="24" x2="15" y2="30" stroke="%234fc3f7" stroke-width="2" stroke-linecap="round"/><line x1="22" y1="24" x2="21" y2="28" stroke="%234fc3f7" stroke-width="2" stroke-linecap="round"/></svg>`,
     lightning:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M8 18h16a6 6 0 0 0 1-11.9A8 8 0 0 0 9 8a6 6 0 0 0-1 10z" fill="%23616161"/><polygon points="17,18 13,25 16,25 14,32 21,23 17,23 19,18" fill="%23FFD700"/></svg>`
@@ -1468,3 +1513,155 @@ function updateFavicon(){
 }
 
 document.addEventListener('DOMContentLoaded',init);
+
+// ═══════════════════════════════════════════
+// Inline Settings Panel
+// ═══════════════════════════════════════════
+(function(){
+const S_NOTIF_TYPES=[
+    {value:'daily',label:'📋 Denný prehľad',timed:true},
+    {value:'severe',label:'⚠️ Výstrahy',timed:true},
+    {value:'weather_change',label:'🔄 Zmeny počasia',timed:false},
+    {value:'rain_now',label:'🌧️ Dážď teraz',timed:false},
+    {value:'storm',label:'⛈️ Búrkový alert',timed:false},
+    {value:'extreme_temp',label:'🌡️ Extrémne teploty',timed:false},
+    {value:'sunrise',label:'🌅 Východ slnka',timed:false},
+    {value:'sunset',label:'🌇 Západ slnka',timed:false},
+    {value:'moon',label:'🌙 Fáza mesiaca',timed:true},
+];
+let sUserData=null,sSelectedNotifType=null;
+
+function sActivate(gid,val){document.querySelectorAll('#'+gid+' .stb').forEach(b=>b.classList.toggle('sa',b.dataset.v===val))}
+
+document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelectorAll('.stg').forEach(g=>{g.addEventListener('click',e=>{const b=e.target.closest('.stb');if(!b)return;g.querySelectorAll('.stb').forEach(x=>x.classList.remove('sa'));b.classList.add('sa')})});
+
+    const settingsBtn=document.getElementById('settingsBtn');
+    const settingsBack=document.getElementById('settingsBack');
+    const settingsPanel=document.getElementById('settingsPanel');
+    const weatherHero=document.getElementById('weatherHero');
+    const localitySection=document.getElementById('localitySection');
+    const radarBtn=document.getElementById('radarOpenBtn');
+
+    if(settingsBtn) settingsBtn.addEventListener('click',()=>{
+        if(typeof closeRadar==='function') try{closeRadar()}catch{}
+        settingsPanel.classList.remove('hidden');
+        weatherHero.classList.add('hidden');
+        if(localitySection) localitySection.classList.add('hidden');
+        radarBtn.classList.add('hidden');
+        settingsBtn.style.opacity='0.5';
+        loadSettingsData();
+    });
+    if(settingsBack) settingsBack.addEventListener('click',()=>{
+        settingsPanel.classList.add('hidden');
+        weatherHero.classList.remove('hidden');
+        if(localitySection) localitySection.classList.remove('hidden');
+        radarBtn.classList.remove('hidden');
+        settingsBtn.style.opacity='1';
+    });
+
+    document.getElementById('sLogout')?.addEventListener('click',async()=>{await fetch('/auth/logout',{method:'POST'});location.reload()});
+    document.getElementById('sAddFav')?.addEventListener('click',()=>document.getElementById('sFavForm')?.classList.toggle('hidden'));
+    document.getElementById('sFavSearch')?.addEventListener('click',sSearchFav);
+    document.getElementById('sFavInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')sSearchFav()});
+    document.getElementById('sAddNotif')?.addEventListener('click',()=>{document.getElementById('sNotifForm')?.classList.remove('hidden');sSelectedNotifType=null;sInitNotifTypes()});
+    document.getElementById('sCancelNotif')?.addEventListener('click',()=>{document.getElementById('sNotifForm')?.classList.add('hidden')});
+    document.getElementById('sSaveNotif')?.addEventListener('click',sSaveNotif);
+    document.getElementById('sSaveAll')?.addEventListener('click',sSaveSettings);
+    document.getElementById('sDelete')?.addEventListener('click',sDeleteAccount);
+});
+
+async function loadSettingsData(){
+    try{
+        const authRes=await fetch('/auth/me');
+        if(!authRes.ok){document.getElementById('sLoginBox').classList.remove('hidden');document.getElementById('sApp').classList.add('hidden');return}
+        const auth=await authRes.json();
+        const dataRes=await fetch('/api/me');
+        sUserData=dataRes.ok?await dataRes.json():{};
+        document.getElementById('sLoginBox').classList.add('hidden');
+        document.getElementById('sApp').classList.remove('hidden');
+        document.getElementById('sAvatar').src=auth.avatarUrl;
+        document.getElementById('sName').textContent=auth.displayName||auth.username;
+        document.getElementById('sTag').textContent='@'+auth.username;
+        document.getElementById('sCity').textContent=sUserData.city||'Nenastavené';
+        document.getElementById('sCityCoords').textContent=sUserData.latitude?sUserData.latitude.toFixed(4)+', '+sUserData.longitude.toFixed(4)+' · '+(sUserData.timezone||'auto'):'';
+        if(sUserData.units==='fahrenheit')sActivate('sTempTg','fahrenheit');
+        if(sUserData.wind_unit)sActivate('sWindTg',sUserData.wind_unit);
+        if(sUserData.default_view)sActivate('sViewTg',sUserData.default_view);
+        const dsp=sUserData.display||{};
+        document.getElementById('sDspNameday').checked=dsp.nameday!==false;
+        document.getElementById('sDspGraph').checked=dsp.graph!==false;
+        document.getElementById('sDspSun').checked=dsp.sun!==false;
+        document.getElementById('sDspUv').checked=dsp.uv!==false;
+        sRenderFavs();sRenderNotifs();
+    }catch(e){console.error(e)}
+}
+
+function sRenderFavs(){
+    const el=document.getElementById('sFavList'),favs=sUserData?.favorites||[];
+    if(!favs.length){el.innerHTML='<div style="color:#6b7fa0;font-size:12px">Žiadne obľúbené mestá.</div>';return}
+    el.innerHTML=favs.map((f,i)=>'<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(59,80,104,.3)"><span>⭐</span><div style="flex:1;font-size:13px">'+f.name+'<div style="font-size:11px;color:#6b7fa0">'+(f.latitude||0).toFixed(2)+', '+(f.longitude||0).toFixed(2)+'</div></div><button onclick="window._sRemoveFav('+i+')" style="padding:4px 8px;font-size:11px;background:#253648;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:6px;cursor:pointer;font-family:inherit">✕</button></div>').join('');
+}
+window._sRemoveFav=async function(i){try{await fetch('/api/me/favorites/'+i,{method:'DELETE'});sUserData.favorites.splice(i,1);sRenderFavs()}catch{}};
+
+async function sSearchFav(){
+    const q=document.getElementById('sFavInput').value.trim();if(!q)return;
+    try{
+        const res=await(await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(q)+'&count=5&language=en')).json();
+        const r=res.results||[],el=document.getElementById('sFavResults');
+        if(!r.length){el.innerHTML='<div style="padding:10px;font-size:13px">Žiadne výsledky.</div>';el.classList.remove('hidden');return}
+        el.innerHTML='';
+        r.forEach(c=>{
+            const d=document.createElement('div');d.style.cssText='padding:10px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid rgba(59,80,104,.2);transition:background .15s';
+            d.innerHTML='<div>'+c.name+'</div><div style="font-size:11px;color:#6b7fa0">'+[c.admin1,c.country].filter(Boolean).join(', ')+'</div>';
+            d.addEventListener('mouseover',()=>d.style.background='rgba(76,110,245,.08)');
+            d.addEventListener('mouseout',()=>d.style.background='');
+            d.addEventListener('click',()=>sAddFav({name:c.name+(c.country?', '+c.country:''),latitude:c.latitude,longitude:c.longitude,timezone:c.timezone||'auto'}));
+            el.appendChild(d);
+        });
+        el.classList.remove('hidden');
+    }catch{}
+}
+async function sAddFav(fav){
+    try{
+        const res=await fetch('/api/me/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(fav)});
+        if(!res.ok){sShowStatus((await res.json()).error||'Chyba','err');return}
+        if(!sUserData.favorites)sUserData.favorites=[];sUserData.favorites.push(fav);sRenderFavs();
+        document.getElementById('sFavForm').classList.add('hidden');sShowStatus('Mesto pridané','ok');
+    }catch{sShowStatus('Chyba','err')}
+}
+
+function sRenderNotifs(){
+    const el=document.getElementById('sNotifList'),notifs=sUserData?.notifications||[];
+    if(!notifs.length){el.innerHTML='<div style="color:#6b7fa0;font-size:12px">Zatiaľ žiadne notifikácie.</div>';return}
+    const names={daily:'Denný prehľad',severe:'Výstrahy',storm:'Búrkový alert',sunrise:'Východ slnka',sunset:'Západ slnka',weather_change:'Zmeny počasia',rain_now:'Dážď teraz',extreme_temp:'Extrémne teploty',moon:'Fáza mesiaca'};
+    el.innerHTML=notifs.map(n=>{
+        const s=n.enabled?'🟢':'🔴',t=(n.hour!=null)?String(n.hour).padStart(2,'0')+':'+String(n.minute||0).padStart(2,'0'):'—';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(59,80,104,.3)"><span>'+s+'</span><div style="flex:1;font-size:13px">'+(names[n.type]||n.type)+'<div style="font-size:11px;color:#6b7fa0">'+t+'</div></div><button onclick="window._sToggleNotif(\''+n.id+'\')" style="padding:4px 8px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">'+(n.enabled?'Vypnúť':'Zapnúť')+'</button><button onclick="window._sRemoveNotif(\''+n.id+'\')" style="padding:4px 8px;font-size:11px;background:#253648;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:6px;cursor:pointer;font-family:inherit">✕</button></div>';
+    }).join('');
+}
+window._sToggleNotif=async function(id){try{const r=await fetch('/api/me/notifications/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:'{}'});const u=await r.json();const n=sUserData.notifications.find(x=>x.id===id);if(n)n.enabled=u.enabled;sRenderNotifs()}catch{}};
+window._sRemoveNotif=async function(id){try{await fetch('/api/me/notifications/'+id,{method:'DELETE'});sUserData.notifications=sUserData.notifications.filter(n=>n.id!==id);sRenderNotifs()}catch{}};
+
+function sInitNotifTypes(){document.getElementById('sNotifTypes').innerHTML=S_NOTIF_TYPES.map(t=>'<div class="snt" data-v="'+t.value+'" data-timed="'+t.timed+'" onclick="window._sSelectNotifType(this)">'+t.label+'</div>').join('')}
+window._sSelectNotifType=function(el){document.querySelectorAll('.snt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');sSelectedNotifType=el.dataset.v;document.getElementById('sNotifTimeRow').classList.toggle('hidden',el.dataset.timed!=='true')};
+
+async function sSaveNotif(){
+    if(!sSelectedNotifType){sShowStatus('Vyber typ','err');return}
+    const body={type:sSelectedNotifType},info=S_NOTIF_TYPES.find(t=>t.value===sSelectedNotifType);
+    if(info?.timed){const p=document.getElementById('sNotifTime').value.match(/^(\d{1,2}):(\d{2})$/);if(!p){sShowStatus('Zadaj čas HH:MM','err');return}body.hour=parseInt(p[1]);body.minute=parseInt(p[2])}else{body.event_based=true}
+    try{const r=await fetch('/api/me/notifications',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok){sShowStatus('Chyba','err');return}const n=await r.json();if(!sUserData.notifications)sUserData.notifications=[];sUserData.notifications.push(n);sRenderNotifs();document.getElementById('sNotifForm').classList.add('hidden');sShowStatus('Notifikácia pridaná','ok')}catch{sShowStatus('Chyba','err')}
+}
+async function sSaveSettings(){
+    const temp=document.querySelector('#sTempTg .stb.sa')?.dataset.v||'celsius';
+    const wind=document.querySelector('#sWindTg .stb.sa')?.dataset.v||'kmh';
+    const view=document.querySelector('#sViewTg .stb.sa')?.dataset.v||'current';
+    const display={nameday:document.getElementById('sDspNameday').checked,graph:document.getElementById('sDspGraph').checked,sun:document.getElementById('sDspSun').checked,uv:document.getElementById('sDspUv').checked};
+    try{await fetch('/api/me',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({units:temp,wind_unit:wind,default_view:view,display})});sShowStatus('Nastavenia uložené','ok')}catch{sShowStatus('Chyba','err')}
+}
+async function sDeleteAccount(){
+    if(!confirm('Vymazať všetky dáta? Toto sa nedá vrátiť.'))return;
+    try{await fetch('/api/me',{method:'DELETE'});await fetch('/auth/logout',{method:'POST'});location.reload()}catch{sShowStatus('Chyba','err')}
+}
+function sShowStatus(msg,type){const el=document.getElementById('sStatus');el.textContent=msg;el.className=type==='ok'?'':'';el.style.cssText='padding:8px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:8px;'+(type==='ok'?'color:#4ade80;background:rgba(74,222,128,.08)':'color:#f87171;background:rgba(248,113,113,.08)');el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),3000)}
+})();

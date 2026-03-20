@@ -403,6 +403,16 @@ body.radar-active .radar-overlay{right:0}
 .stb{padding:6px 12px;font-size:12px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:8px;cursor:pointer;transition:all .2s;font-family:inherit}
 .stb:hover{color:#e8edf5;border-color:#4c6ef5}
 .stb.sa{background:#4c6ef5;color:#fff;border-color:transparent}
+.mobile-fabs{display:none;position:fixed;bottom:20px;right:20px;z-index:60;flex-direction:column;gap:10px}
+.fab{width:48px;height:48px;border-radius:50%;border:1px solid #3b5068;background:rgba(30,41,59,.95);backdrop-filter:blur(8px);color:#e8edf5;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.4);transition:all .2s}
+.fab:hover{border-color:#4c6ef5;transform:scale(1.08)}
+.fab:active{transform:scale(0.95)}
 .snt{padding:8px 12px;background:#253648;border:1px solid #3b5068;border-radius:8px;cursor:pointer;font-size:12px;transition:all .2s;text-align:center;font-family:inherit;color:#8899b0}
+
+@media(max-width:540px){
+.mobile-fabs{display:flex}
+.radar-open-btn{display:none!important}
+#settingsBtn{display:none!important}
+}
 .snt:hover{border-color:#4c6ef5;color:#e8edf5}
 .snt.sel{background:#4c6ef5;color:#fff;border-color:transparent}

@@ -1579,6 +1579,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const radarBtn=document.getElementById('radarOpenBtn');
 
     const hamburgerBtn=document.getElementById('hamburgerBtn');
+    const mobileFabs=document.getElementById('mobileFabs');
 
     if(settingsBtn) settingsBtn.addEventListener('click',()=>{
         if(typeof closeRadar==='function') try{closeRadar()}catch{}
@@ -1587,6 +1588,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(localitySection) localitySection.classList.add('hidden');
         radarBtn.classList.add('hidden');
         if(hamburgerBtn) hamburgerBtn.classList.add('hidden');
+        if(mobileFabs) mobileFabs.classList.add('hidden');
         settingsBtn.style.opacity='0.5';
         loadSettingsData();
     });
@@ -1596,10 +1598,29 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(localitySection) localitySection.classList.remove('hidden');
         radarBtn.classList.remove('hidden');
         if(hamburgerBtn) hamburgerBtn.classList.remove('hidden');
+        if(mobileFabs) mobileFabs.classList.remove('hidden');
         settingsBtn.style.opacity='1';
     });
 
     document.getElementById('sLogout')?.addEventListener('click',async()=>{await fetch('/auth/logout',{method:'POST'});location.reload()});
+
+    // Mobile FABs
+    const fabRadar=document.getElementById('fabRadar');
+    const fabSettings=document.getElementById('fabSettings');
+    if(fabRadar) fabRadar.addEventListener('click',()=>{
+        if(typeof openRadar==='function') openRadar();
+    });
+    if(fabSettings) fabSettings.addEventListener('click',()=>{
+        if(typeof closeRadar==='function') try{closeRadar()}catch{}
+        settingsPanel.classList.remove('hidden');
+        weatherHero.classList.add('hidden');
+        if(localitySection) localitySection.classList.add('hidden');
+        radarBtn.classList.add('hidden');
+        if(hamburgerBtn) hamburgerBtn.classList.add('hidden');
+        if(mobileFabs) mobileFabs.classList.add('hidden');
+        settingsBtn.style.opacity='0.5';
+        loadSettingsData();
+    });
     document.getElementById('sCitySearch')?.addEventListener('click',sSearchCity);
     document.getElementById('sCityInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')sSearchCity()});
     document.getElementById('sAddFav')?.addEventListener('click',()=>document.getElementById('sFavForm')?.classList.toggle('hidden'));

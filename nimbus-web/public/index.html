@@ -119,6 +119,14 @@
             </div>
         </nav>
 
+        <div id="localitySection" class="px-5 py-2">
+            <div class="flex gap-2">
+                <input type="text" id="cityInput" class="nimbus-input flex-1" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;padding:8px 12px;font-size:13px" placeholder="Hľadaj mesto…" autocomplete="off">
+                <button id="searchBtn" class="nimbus-btn-primary" style="padding:8px 14px;font-size:13px">Hľadaj</button>
+            </div>
+            <div id="cityResults" class="city-results hidden"></div>
+        </div>
+
         <div id="weatherHero" class="px-5 py-3">
             <div id="weatherLoading" class="flex flex-col items-center justify-center py-12 gap-3">
                 <div class="loading-spinner"></div>
@@ -160,14 +168,6 @@
             </div>
         </div>
 
-        <div id="localitySection" class="px-5 py-3">
-            <div class="text-xs font-semibold uppercase tracking-wider mb-2" style="color:#6b7fa0;">📍 Lokalita</div>
-            <div class="flex gap-2">
-                <input type="text" id="cityInput" class="nimbus-input flex-1" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;" placeholder="Hľadaj mesto…" autocomplete="off">
-                <button id="searchBtn" class="nimbus-btn-primary">Hľadaj</button>
-            </div>
-            <div id="cityResults" class="city-results hidden"></div>
-        </div>
 
         <!-- Settings Panel (hidden by default) -->
         <div id="settingsPanel" class="hidden" style="padding:16px 20px">
@@ -245,6 +245,53 @@
                     <button id="sDelete" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:8px;padding:10px 16px;font-size:13px;cursor:pointer;font-family:inherit">🗑️</button>
                 </div>
                 <div id="sStatus" class="hidden" style="padding:8px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:8px"></div>
+            </div>
+            <div id="devPanel" class="hidden" style="margin-top:16px;border-top:2px solid #f87171;padding-top:16px">
+                <div style="font-size:13px;font-weight:700;color:#f87171;margin-bottom:12px">🛠️ Developer Panel</div>
+                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:12px">
+                    <div style="margin-bottom:12px">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>⏰ Čas</span><span id="devTimeVal">12:00</span></div>
+                        <input type="range" id="devTime" min="0" max="23.9" step="0.1" value="12" style="width:100%;accent-color:#f87171">
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>🌡️ Teplota</span><span id="devTempVal">20°C</span></div>
+                        <input type="range" id="devTemp" min="-50" max="50" step="1" value="20" style="width:100%;accent-color:#fb923c">
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>☁️ Oblačnosť</span><span id="devCloudVal">0%</span></div>
+                        <input type="range" id="devCloud" min="0" max="100" step="5" value="0" style="width:100%;accent-color:#8899b0">
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>🌙 Fáza mesiaca (deň)</span><span id="devMoonVal">0</span></div>
+                        <input type="range" id="devMoon" min="0" max="29.5" step="0.5" value="0" style="width:100%;accent-color:#e8e4d4">
+                    </div>
+                    <div style="margin-bottom:12px">
+                        <div style="font-size:12px;color:#8899b0;margin-bottom:4px">🌤️ Počasie</div>
+                        <select id="devWeather" style="width:100%;background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px;font-size:12px;font-family:inherit">
+                            <option value="0">☀️ 0 — Jasno</option>
+                            <option value="1">🌤️ 1 — Prevažne jasno</option>
+                            <option value="2">⛅ 2 — Polojasno</option>
+                            <option value="3">☁️ 3 — Zamračené</option>
+                            <option value="45">🌫️ 45 — Hmla</option>
+                            <option value="51">🌦️ 51 — Mrholenie slabé</option>
+                            <option value="53">🌧️ 53 — Mrholenie stredné</option>
+                            <option value="61">🌧️ 61 — Dážď slabý</option>
+                            <option value="63">🌧️ 63 — Dážď stredný</option>
+                            <option value="65">🌧️ 65 — Dážď silný</option>
+                            <option value="71">🌨️ 71 — Sneh slabý</option>
+                            <option value="73">🌨️ 73 — Sneh stredný</option>
+                            <option value="75">❄️ 75 — Sneh silný</option>
+                            <option value="80">🌦️ 80 — Prehánky slabé</option>
+                            <option value="82">🌧️ 82 — Prehánky silné</option>
+                            <option value="95">⛈️ 95 — Búrka</option>
+                            <option value="96">⛈️ 96 — Búrka s krúpami</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:8px">
+                        <button id="devApply" style="flex:1;background:#f87171;color:#fff;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Aplikovať</button>
+                        <button id="devReset" style="flex:1;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:8px;padding:8px;font-size:13px;cursor:pointer;font-family:inherit">Reset</button>
+                    </div>
+                </div>
             </div>
         </div>
 

@@ -192,13 +192,15 @@ app.post('/auth/logout', (req, res) => {
     res.json({ ok: true });
 });
 
+const DEVELOPER_IDS = ['562024534958538783'];
+
 app.get('/auth/me', (req, res) => {
     const session = getSession(req);
     if (!session) return res.status(401).json({ error: 'Not authenticated' });
     const avatarUrl = session.avatar
         ? `https://cdn.discordapp.com/avatars/${session.discordId}/${session.avatar}.png?size=128`
         : `https://cdn.discordapp.com/embed/avatars/${parseInt(session.discriminator || 0) % 5}.png`;
-    res.json({ id: session.discordId, username: session.username, displayName: session.displayName, avatarUrl });
+    res.json({ id: session.discordId, username: session.username, displayName: session.displayName, avatarUrl, developer: DEVELOPER_IDS.includes(session.discordId) });
 });
 
 // ── API ───────────────────────────────────────────────────────

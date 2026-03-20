@@ -1,5 +1,6 @@
 'use strict';
 
+let _devMoonOverride=null;
 const API_BASE = '/api';
 
 const WMO = {
@@ -110,7 +111,7 @@ const HORIZON_GLOWS = {
 function getSunPosition(hour){
     if(hour<6||hour>20) return null;
     const p=(hour-6)/14;
-    return {x:10+p*80,y:65-Math.sin(p*Math.PI)*50};
+    return {x:5+p*55,y:65-Math.sin(p*Math.PI)*50};
 }
 function getMoonPosition(hour,isDay){
     if(isDay) return null;
@@ -118,7 +119,7 @@ function getMoonPosition(hour,isDay){
     if(hour>=18) p=(hour-18)/12;
     else if(hour<6) p=(hour+6)/12;
     else p=0.5;
-    return {x:10+p*80,y:65-Math.sin(p*Math.PI)*45};
+    return {x:5+p*55,y:65-Math.sin(p*Math.PI)*45};
 }
 
 function updateSkyScene(weatherCode,isDay,hour){
@@ -354,7 +355,8 @@ async function geocode(query){
 async function fetchWeather(lat,lon,tz='auto'){
     const vars=['temperature_2m','relative_humidity_2m','apparent_temperature','is_day','precipitation','weather_code','cloud_cover','wind_speed_10m','wind_direction_10m','wind_gusts_10m','surface_pressure'].join(',');
     const dailyVars=['sunrise','sunset','uv_index_max','precipitation_probability_max'].join(',');
-    return (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=${vars}&daily=${dailyVars}&timezone=${tz}&forecast_days=1`)).json();
+    const hourlyVars='temperature_2m';
+    return (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=${vars}&daily=${dailyVars}&hourly=${hourlyVars}&timezone=${tz}&forecast_days=1`)).json();
 }
 function getWindDir(deg){
     const dirs=['S','SSV','SV','VSV','V','VJV','JV','JJV','J','JJZ','JZ','ZJZ','Z','ZSZ','SZ','SSZ'];
@@ -381,14 +383,14 @@ async function loadWeather(lat,lon,tz,cityName){
     try{
         const data=await fetchWeather(lat,lon,tz);
         const c=data.current;const d=data.daily;const info=WMO[c.weather_code]||WMO[0];
-        state.weatherCode=c.weather_code;state.isDay=c.is_day;state.currentData=c;state.dailyData=d;
+        state.weatherCode=c.weather_code;state.isDay=c.is_day;state.currentData=c;state.dailyData=d;state.hourlyToday=data.hourly;
         const cityTime=c.time?new Date(c.time):new Date();
         const cityHour=cityTime.getHours();state.cityHour=cityHour;
         els.weatherIconBig.textContent=info.emoji;
         els.weatherTemp.textContent=`${Math.round(c.temperature_2m)}°C`;
         els.weatherDesc.textContent=wmoText(c.weather_code);
         els.weatherCity.textContent=cityName||`${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-        renderCurrentTab(c,d);
+        renderCurrentTab(c,d,data.hourly);
         updateSkyScene(c.weather_code,c.is_day,cityHour);scheduleSkyFreeze();
         if(typeof updateFavicon==='function') updateFavicon();
         if(typeof updateRadarLocation==='function') updateRadarLocation();
@@ -425,7 +427,8 @@ function renderMoonSvg(illumination,waxing,size=24){
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><defs><clipPath id="${clipId}"><path d="${litPath}"/></clipPath></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="${dark}"/><g clip-path="url(#${clipId})"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#e8e4d4"/>${surface}</g></svg>`;
 }
 
-function renderCurrentTab(c,d){
+let currentChart=null;
+function renderCurrentTab(c,d,hourly){
     const windDir=getWindDir(c.wind_direction_10m||0);
     const sunrise=d?.sunrise?.[0]?new Date(d.sunrise[0]):null;
     const sunset=d?.sunset?.[0]?new Date(d.sunset[0]):null;
@@ -454,7 +457,38 @@ function renderCurrentTab(c,d){
     html+='</div>';
     if(nameday) html+=`<div style="margin-top:8px;padding:8px 12px;background:#253648;border:1px solid #3b5068;border-radius:8px;font-size:13px;color:#e8edf5"><span style="color:#6b7fa0">🎂 Meniny:</span> <b>${nameday}</b></div>`;
     if(accLine) html+=`<div style="margin-top:6px;padding:8px 12px;background:rgba(76,110,245,.08);border:1px solid rgba(76,110,245,.15);border-radius:8px;font-size:12px;color:#8899b0">${accLine}</div>`;
+    if(hourly?.time?.length){
+        html+=`<div style="margin-top:10px;background:#253648;border:1px solid #3b5068;border-radius:10px;padding:10px 12px"><div class="text-xs" style="color:#6b7fa0;margin-bottom:6px">📊 Teplota dnes</div><div style="height:120px"><canvas id="currentHourlyChart"></canvas></div></div>`;
+    }
     container.innerHTML=html;
+    if(hourly?.time?.length&&typeof Chart!=='undefined'){
+        const now=new Date();
+        const currentHour=state.cityHour!=null?state.cityHour:now.getHours();
+        const times=hourly.time||[];
+        const temps=hourly.temperature_2m||[];
+        const labels=[];const dataMax=[];const dataMin=[];
+        for(let i=0;i<=currentHour&&i<times.length;i++){
+            labels.push(String(i).padStart(2,'0')+':00');
+            dataMax.push(temps[i]);
+        }
+        if(currentChart){currentChart.destroy();currentChart=null}
+        const canvas=document.getElementById('currentHourlyChart');
+        if(canvas){
+            currentChart=new Chart(canvas,{
+                type:'line',
+                data:{labels,datasets:[{
+                    label:'°C',data:dataMax,
+                    borderColor:'#f87171',backgroundColor:'rgba(248,113,113,.1)',
+                    borderWidth:2,pointRadius:0,tension:.3,fill:true
+                }]},
+                options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+                    scales:{x:{ticks:{color:'#6b7fa0',font:{size:9},maxTicksLimit:8},grid:{color:'rgba(59,80,104,.2)'}},
+                    y:{ticks:{color:'#6b7fa0',font:{size:10},callback:v=>v+'°'},grid:{color:'rgba(59,80,104,.2)'}}},
+                    interaction:{mode:'index',intersect:false},
+                }
+            });
+        }
+    }
 }
 
 const tabCache={};const tabInflight=new Set();const TAB_TTL_MS=10*60*1000;const tabFetchTime={};
@@ -744,6 +778,7 @@ async function loadTabTraffic(){
 }
 
 function getMoonPhase(date=new Date()){
+    if(typeof _devMoonOverride!=='undefined'&&_devMoonOverride) return _devMoonOverride;
     const refNewMoon=Date.UTC(2000,0,6,18,14,0);
     const synodicMonth=29.53058867;
     const daysSince=(date.getTime()-refNewMoon)/86400000;
@@ -1596,6 +1631,7 @@ async function loadSettingsData(){
         document.getElementById('sDspSun').checked=dsp.sun!==false;
         document.getElementById('sDspUv').checked=dsp.uv!==false;
         sRenderFavs();sRenderNotifs();
+        if(auth.developer) initDevPanel(true);
     }catch(e){console.error(e)}
 }
 
@@ -1696,4 +1732,82 @@ async function sDeleteAccount(){
     try{await fetch('/api/me',{method:'DELETE'});await fetch('/auth/logout',{method:'POST'});location.reload()}catch{sShowStatus('Chyba','err')}
 }
 function sShowStatus(msg,type){const el=document.getElementById('sStatus');el.textContent=msg;el.className=type==='ok'?'':'';el.style.cssText='padding:8px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:8px;'+(type==='ok'?'color:#4ade80;background:rgba(74,222,128,.08)':'color:#f87171;background:rgba(248,113,113,.08)');el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),3000)}
+
+// ─── Developer Panel ──────────────────────
+let _devMode=false;
+const _origGetMoonPhase=typeof getMoonPhase==='function'?getMoonPhase:null;
+
+window.initDevPanel=function(isDev){
+    if(!isDev) return;
+    document.getElementById('devPanel')?.classList.remove('hidden');
+    const timeSlider=document.getElementById('devTime');
+    const tempSlider=document.getElementById('devTemp');
+    const cloudSlider=document.getElementById('devCloud');
+    const moonSlider=document.getElementById('devMoon');
+    const weatherSelect=document.getElementById('devWeather');
+    const timeVal=document.getElementById('devTimeVal');
+    const tempVal=document.getElementById('devTempVal');
+    const cloudVal=document.getElementById('devCloudVal');
+    const moonVal=document.getElementById('devMoonVal');
+
+    timeSlider?.addEventListener('input',()=>{
+        const h=parseFloat(timeSlider.value);
+        const hh=Math.floor(h);const mm=Math.round((h-hh)*60);
+        timeVal.textContent=String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+    });
+    tempSlider?.addEventListener('input',()=>tempVal.textContent=tempSlider.value+'°C');
+    cloudSlider?.addEventListener('input',()=>cloudVal.textContent=cloudSlider.value+'%');
+    moonSlider?.addEventListener('input',()=>{
+        const d=parseFloat(moonSlider.value);
+        moonVal.textContent='Deň '+d.toFixed(1);
+    });
+
+    document.getElementById('devApply')?.addEventListener('click',()=>{
+        _devMode=true;
+        const hour=parseFloat(timeSlider.value);
+        const weatherCode=parseInt(weatherSelect.value);
+        const isDay=hour>=6&&hour<20?1:0;
+        const cloud=parseInt(cloudSlider.value);
+        const moonDay=parseFloat(moonSlider.value);
+
+        // Override moon phase
+        const synodicMonth=29.53058867;
+        const illum=Math.round(50*(1-Math.cos(2*Math.PI*moonDay/synodicMonth)));
+        const waxing=moonDay<synodicMonth/2;
+        let mName;
+        if(illum<=2) mName='Nov';
+        else if(illum>=98) mName='Spln';
+        else if(waxing&&illum<45) mName='Dorastajúci kosáčik';
+        else if(waxing&&illum<55) mName='Prvá štvrť';
+        else if(waxing) mName='Dorastajúci mesiac';
+        else if(!waxing&&illum>55) mName='Ubúdajúci mesiac';
+        else if(!waxing&&illum>45) mName='Posledná štvrť';
+        else mName='Ubúdajúci kosáčik';
+        _devMoonOverride={name:mName,emoji:'🌙',phase:illum,synodicDay:Math.round(moonDay),daysSince:moonDay,waxing};
+
+        // Apply sky scene with overrides
+        updateSkyScene(weatherCode,isDay,hour);
+
+        // Update hero display
+        const info=WMO[weatherCode]||WMO[0];
+        if(els.weatherIconBig) els.weatherIconBig.textContent=info.emoji;
+        if(els.weatherTemp) els.weatherTemp.textContent=tempSlider.value+'°C';
+        if(els.weatherDesc) els.weatherDesc.textContent=wmoText(weatherCode);
+    });
+
+    document.getElementById('devReset')?.addEventListener('click',()=>{
+        _devMode=false;
+        _devMoonOverride=null;
+        if(state.weatherCode!=null){
+            const hour=state.cityHour!=null?state.cityHour:new Date().getHours();
+            updateSkyScene(state.weatherCode,state.isDay,hour);
+            const info=WMO[state.weatherCode]||WMO[0];
+            if(els.weatherIconBig) els.weatherIconBig.textContent=info.emoji;
+            if(state.currentData){
+                if(els.weatherTemp) els.weatherTemp.textContent=Math.round(state.currentData.temperature_2m)+'°C';
+                if(els.weatherDesc) els.weatherDesc.textContent=wmoText(state.weatherCode);
+            }
+        }
+    });
+}
 })();

@@ -885,6 +885,7 @@ function openRadar(){
     const overlay=$('radarOverlay');if(!overlay) return;
     overlay.classList.remove('hidden');
     document.body.classList.add('radar-active');
+    const fabs=document.getElementById('mobileFabs');if(fabs) fabs.classList.add('fabs-hidden');
     radarLayer='rain';
     document.querySelectorAll('.radar-layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.layer==='rain'));
     const cityLabel=$('radarCityLabel');if(cityLabel) cityLabel.textContent=state.city||'';
@@ -898,6 +899,7 @@ function closeRadar(){
     if(frame) frame.src='';
     $('radarOverlay')?.classList.add('hidden');
     document.body.classList.remove('radar-active');
+    const fabs=document.getElementById('mobileFabs');if(fabs) fabs.classList.remove('fabs-hidden');
 }
 
 function switchRadarLayer(layer){
@@ -1588,7 +1590,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(localitySection) localitySection.classList.add('hidden');
         radarBtn.classList.add('hidden');
         if(hamburgerBtn) hamburgerBtn.classList.add('hidden');
-        if(mobileFabs) mobileFabs.classList.add('hidden');
+        if(mobileFabs) mobileFabs.classList.add('fabs-hidden');
         settingsBtn.style.opacity='0.5';
         loadSettingsData();
     });
@@ -1598,7 +1600,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(localitySection) localitySection.classList.remove('hidden');
         radarBtn.classList.remove('hidden');
         if(hamburgerBtn) hamburgerBtn.classList.remove('hidden');
-        if(mobileFabs) mobileFabs.classList.remove('hidden');
+        if(mobileFabs) mobileFabs.classList.remove('fabs-hidden');
         settingsBtn.style.opacity='1';
     });
 
@@ -1617,7 +1619,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if(localitySection) localitySection.classList.add('hidden');
         radarBtn.classList.add('hidden');
         if(hamburgerBtn) hamburgerBtn.classList.add('hidden');
-        if(mobileFabs) mobileFabs.classList.add('hidden');
+        if(mobileFabs) mobileFabs.classList.add('fabs-hidden');
         settingsBtn.style.opacity='0.5';
         loadSettingsData();
     });

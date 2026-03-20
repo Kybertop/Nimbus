@@ -192,7 +192,7 @@ app.post('/auth/logout', (req, res) => {
     res.json({ ok: true });
 });
 
-const DEVELOPER_IDS = ['562024534958538783'];
+const DEVELOPER_IDS = ['562024534958538783', '252163630576041994'];
 
 app.get('/auth/me', (req, res) => {
     const session = getSession(req);

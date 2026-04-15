@@ -7,333 +7,82 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://api.open-meteo.com">
-    <link rel="preconnect" href="https://cdn.discordapp.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="preload" href="style.css?v=20260320" as="style">
-    <link rel="preload" href="app.js?v=20260320" as="script">
-    <link rel="stylesheet" href="style.css?v=20260320">
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=20260414">
 </head>
-<body class="font-inter" style="background:#060a12;color:#e8edf5;">
+<body>
 
-<div id="sky" class="sky">
-    <div id="skyGradient" class="sky-gradient"></div>
-    <div id="stars" class="stars">
-        <div class="star"></div><div class="star"></div><div class="star"></div>
-        <div class="star"></div><div class="star"></div><div class="star"></div>
-        <div class="star"></div><div class="star"></div><div class="star"></div>
-        <div class="star"></div><div class="star"></div><div class="star"></div>
-        <div class="star"></div><div class="star"></div><div class="star"></div>
-        <div class="star"></div><div class="star"></div><div class="star"></div>
-        <div class="star"></div><div class="star"></div>
-    </div>
-    <div id="sunContainer" class="sun-container">
-        <div id="sun" class="sun">
-            <div class="sun-core"></div>
-            <div class="sun-ray"></div><div class="sun-ray"></div>
-            <div class="sun-ray"></div><div class="sun-ray"></div>
-            <div class="sun-ray"></div><div class="sun-ray"></div>
-            <div class="sun-ray"></div><div class="sun-ray"></div>
-            <div class="sun-glow"></div>
-        </div>
-    </div>
-    <div id="moonContainer" class="moon-container">
-        <div id="moon" class="moon">
-            <div class="moon-glow"></div>
-            <div class="crater"></div>
-            <div class="crater small"></div>
-            <div class="crater tiny"></div>
-            <div id="moonPhaseShadow" class="moon-phase-shadow"></div>
-        </div>
-    </div>
-    <div id="cloudsLayer" class="clouds-layer">
-        <div class="cloud cloud-1" id="cloud1">
-            <div class="cloud-puff cp1"></div><div class="cloud-puff cp2"></div><div class="cloud-puff cp3"></div>
-            <div class="cloud-puff cp4"></div><div class="cloud-puff cp5"></div><div class="cloud-puff cp6"></div>
-            <div class="cloud-puff cp7"></div><div class="cloud-base"></div>
-        </div>
-        <div class="cloud cloud-2" id="cloud2">
-            <div class="cloud-puff cp1"></div><div class="cloud-puff cp2"></div><div class="cloud-puff cp3"></div>
-            <div class="cloud-puff cp4"></div><div class="cloud-puff cp5"></div>
-            <div class="cloud-base"></div>
-        </div>
-        <div class="cloud cloud-3" id="cloud3">
-            <div class="cloud-puff cp1"></div><div class="cloud-puff cp2"></div><div class="cloud-puff cp3"></div>
-            <div class="cloud-puff cp4"></div><div class="cloud-puff cp5"></div><div class="cloud-puff cp6"></div>
-            <div class="cloud-puff cp7"></div><div class="cloud-puff cp8"></div>
-            <div class="cloud-base"></div>
-        </div>
-        <div class="cloud cloud-4" id="cloud4">
-            <div class="cloud-puff cp1"></div><div class="cloud-puff cp2"></div><div class="cloud-puff cp3"></div>
-            <div class="cloud-puff cp4"></div>
-            <div class="cloud-base"></div>
-        </div>
-    </div>
-    <canvas id="weatherCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;"></canvas>
-    <div id="lightning" class="lightning"></div>
-    <div id="horizonGlow" class="horizon-glow"></div>
-    <div class="ground"></div>
-</div>
+<div id="skyScene"></div>
 
-<div class="panel-wrapper">
-    <div id="glassPanel" class="glass-panel">
+<div id="app">
+    <div class="container">
 
-        <div class="flex items-center justify-between px-5 pt-4 pb-2">
-            <div class="flex items-center gap-2">
-                <span class="text-2xl logo-icon">⛅</span>
-                <span class="text-xl font-bold tracking-tight">Nimbus</span>
+        <header class="header">
+            <div class="header-left">
+                <i class="fa-solid fa-cloud-sun" style="font-size:20px;color:#fbbf24"></i>
+                <span class="logo-text">Nimbus</span>
             </div>
-            <div class="flex items-center gap-3">
-                <button id="radarOpenBtn" class="radar-open-btn" title="Radar">🗺️</button>
-                <button id="settingsBtn" class="radar-open-btn" title="Nastavenia">⚙️</button>
-                <button id="hamburgerBtn" class="hamburger-btn" aria-label="Menu">
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                </button>
-                <div id="headerTime" class="text-sm font-mono" style="color:#8899b0;"></div>
+            <div class="header-right">
+                <span id="headerTime" class="header-time"></span>
+                <button id="settingsBtn" class="icon-btn" title="Nastavenia"><i class="fa-solid fa-gear" style="font-size:14px"></i></button>
             </div>
-        </div>
+        </header>
 
-        <div id="mobileMenuOverlay" class="mobile-menu-overlay hidden"></div>
-        <nav id="mobileMenu" class="mobile-menu">
-            <div class="mobile-menu-header">
-                <span style="font-size:18px;font-weight:700;color:#e8edf5">Menu</span>
-                <button id="mobileMenuClose" class="mobile-menu-close">✕</button>
-            </div>
-            <div class="mobile-menu-items">
-                <button class="mobile-menu-item" data-tab="current"><span class="mobile-menu-icon">🌡️</span>Aktuálne</button>
-                <button class="mobile-menu-item" data-tab="today"><span class="mobile-menu-icon">📋</span>Dnes</button>
-                <button class="mobile-menu-item" data-tab="7d"><span class="mobile-menu-icon">📆</span>7 dní</button>
-                <button class="mobile-menu-item" data-tab="14d"><span class="mobile-menu-icon">📅</span>14 dní</button>
-                <div class="mobile-menu-divider"></div>
-                <button class="mobile-menu-item" data-tab="air"><span class="mobile-menu-icon">🏔️</span>Vzduch</button>
-                <button class="mobile-menu-item" data-tab="nice"><span class="mobile-menu-icon">☀️</span>Pekne?</button>
-                <button class="mobile-menu-item" data-tab="outfit"><span class="mobile-menu-icon">👔</span>Outfit</button>
-                <button class="mobile-menu-item" data-tab="traffic"><span class="mobile-menu-icon">🚗</span>Doprava</button>
-                <div class="mobile-menu-divider"></div>
-                <button class="mobile-menu-item" data-tab="moon"><span class="mobile-menu-icon">🌙</span>Mesiac</button>
-                <button class="mobile-menu-item" data-tab="history"><span class="mobile-menu-icon">📜</span>História</button>
-            </div>
-        </nav>
-
-        <div id="localitySection" class="px-5 py-2">
-            <div class="flex gap-2">
-                <input type="text" id="cityInput" class="nimbus-input flex-1" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;padding:8px 12px;font-size:13px" placeholder="Hľadaj mesto…" autocomplete="off">
-                <button id="searchBtn" class="nimbus-btn-primary" style="padding:8px 14px;font-size:13px">Hľadaj</button>
+        <div style="position:relative;margin-bottom:8px">
+            <div id="searchBar" class="search-bar">
+                <i class="fa-solid fa-location-dot" style="font-size:13px;color:#34d399"></i>
+                <input type="text" id="cityInput" class="search-input" placeholder="Hľadaj mesto…" autocomplete="off">
             </div>
             <div id="cityResults" class="city-results hidden"></div>
         </div>
 
-        <div id="weatherHero" class="px-5 py-3">
-            <div id="weatherLoading" class="flex flex-col items-center justify-center py-12 gap-3">
-                <div class="loading-spinner"></div>
-                <p style="color:#8899b0;" class="text-sm">Načítavam počasie…</p>
+        <div id="heroSection" class="hero">
+            <div id="weatherLoading" class="hero-loading">
+                <div class="spinner"></div>
+                <p>Načítavam počasie…</p>
             </div>
-            <div id="weatherData" class="hidden">
-                <div id="weatherTabs" class="wtab-grid">
-                    <button class="wtab active" data-tab="current">🌡️ Aktuálne</button>
-                    <button class="wtab" data-tab="today">📋 Dnes</button>
-                    <button class="wtab" data-tab="7d">📆 7 dní</button>
-                    <button class="wtab" data-tab="14d">📅 14 dní</button>
-                    <button class="wtab" data-tab="air">🏔️ Vzduch</button>
-                    <button class="wtab" data-tab="nice">☀️ Pekne?</button>
-                    <button class="wtab" data-tab="outfit">👔 Outfit</button>
-                    <button class="wtab" data-tab="traffic">🚗 Doprava</button>
-                    <button class="wtab" data-tab="moon">🌙 Mesiac</button>
-                    <button class="wtab" data-tab="history">📜 História</button>
-                </div>
-                <div id="weatherTabContent">
-                    <div class="tab-pane active" id="tabCurrent">
-                        <div class="flex flex-col items-center py-4">
-                            <div id="weatherIconBig" class="text-6xl mb-1 weather-icon-big">☀️</div>
-                            <div id="weatherTemp" class="text-5xl font-bold tracking-tight">--°C</div>
-                            <div id="weatherDesc" class="text-base mt-1" style="color:#8899b0;">Loading…</div>
-                            <div id="weatherCity" class="text-sm mt-0.5" style="color:#6b7fa0;">--</div>
-                        </div>
-                        <div id="currentDetails"></div>
-                    </div>
-                    <div class="tab-pane hidden" id="tabToday"><div class="tab-loading hidden" id="loadingToday"><div class="loading-spinner sm"></div></div><div class="tab-scroll" id="contentToday"></div></div>
-                    <div class="tab-pane hidden" id="tab7d"><div class="tab-loading hidden" id="loading7d"><div class="loading-spinner sm"></div></div><div class="tab-scroll" id="content7d"></div></div>
-                    <div class="tab-pane hidden" id="tab14d"><div class="tab-loading hidden" id="loading14d"><div class="loading-spinner sm"></div></div><div class="tab-scroll" id="content14d"></div></div>
-                    <div class="tab-pane hidden" id="tabAir"><div class="tab-loading hidden" id="loadingAir"><div class="loading-spinner sm"></div></div><div id="contentAir"></div></div>
-                    <div class="tab-pane hidden" id="tabNice"><div class="tab-loading hidden" id="loadingNice"><div class="loading-spinner sm"></div></div><div class="tab-scroll" id="contentNice"></div></div>
-                    <div class="tab-pane hidden" id="tabOutfit"><div class="tab-loading hidden" id="loadingOutfit"><div class="loading-spinner sm"></div></div><div id="contentOutfit"></div></div>
-                    <div class="tab-pane hidden" id="tabTraffic"><div class="tab-loading hidden" id="loadingTraffic"><div class="loading-spinner sm"></div></div><div id="contentTraffic"></div></div>
-                    <div class="tab-pane hidden" id="tabMoon"><div class="tab-loading hidden" id="loadingMoon"><div class="loading-spinner sm"></div></div><div id="contentMoon"></div></div>
-                    <div class="tab-pane hidden" id="tabHistory"><div class="tab-loading hidden" id="loadingHistory"><div class="loading-spinner sm"></div></div><div id="contentHistory"></div></div>
-                </div>
+            <div id="heroData" class="hero-data hidden">
+                <div id="heroTemp" class="hero-temp">--°</div>
+                <div id="heroDesc" class="hero-desc">Načítavam…</div>
+                <div id="heroSub" class="hero-sub">Pocitová: --° H:--° L:--°</div>
             </div>
         </div>
 
+        <div id="mainPanel" class="main-panel hidden">
 
-        <div id="settingsPanel" class="hidden" style="padding:16px 20px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;justify-content:center;position:relative">
-                <button id="settingsBack" style="background:none;border:1px solid #3b5068;border-radius:8px;padding:6px 14px;color:#8899b0;font-size:13px;cursor:pointer;font-family:inherit;position:absolute;left:0">← Späť</button>
-                <span style="font-size:18px;font-weight:700">⚙️ Nastavenia</span>
+            <div class="stats-grid" id="statsGrid"></div>
+
+            <div class="tabs-section">
+                <div class="tabs-row" id="tabsRow1"></div>
+                <div class="tabs-row" id="tabsRow2"></div>
             </div>
-            <div id="sLoginBox">
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:28px;text-align:center">
-                    <p style="color:#8899b0;margin-bottom:14px;font-size:14px">Prihlás sa cez Discord pre prístup k nastaveniam bota.</p>
-                    <a href="/auth/login" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;background:#5865f2;border-radius:10px;color:#fff;text-decoration:none;font-size:14px;font-weight:600">
-                        <svg width="18" height="18" viewBox="0 0 71 55" fill="none"><path d="M60.1 4.9A58.6 58.6 0 0 0 45.6.7a40.3 40.3 0 0 0-1.8 3.6 54.2 54.2 0 0 0-16.2 0A38.6 38.6 0 0 0 25.8.7 58.5 58.5 0 0 0 11.2 4.9C1.6 19.2-.9 33.1.3 46.8a59 59 0 0 0 17.9 9 43.3 43.3 0 0 0 3.8-6.1 38.3 38.3 0 0 1-6-2.8c.5-.4 1-.7 1.5-1.1a42 42 0 0 0 35.8 0l1.5 1.1a38.4 38.4 0 0 1-6 2.9 43 43 0 0 0 3.7 6A58.8 58.8 0 0 0 70.7 46.8C72.1 31 68.2 17.2 60.1 4.9ZM23.7 38.4c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.2 6.4-7.2 6.5 3.2 6.4 7.2c0 3.9-2.8 7.1-6.4 7.1Zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.2 6.4-7.2 6.5 3.2 6.4 7.2c0 3.9-2.8 7.1-6.4 7.1Z" fill="currentColor"/></svg>
-                        Prihlásiť sa cez Discord
-                    </a>
-                </div>
-            </div>
-            <div id="sApp" class="hidden">
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="display:flex;align-items:center;gap:12px">
-                        <img id="sAvatar" src="" style="width:44px;height:44px;border-radius:50%" alt="">
-                        <div style="flex:1;min-width:0"><div id="sName" style="font-weight:600;font-size:14px"></div><div id="sTag" style="font-size:12px;color:#6b7fa0"></div></div>
-                        <button id="sLogout" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit">Odhlásiť</button>
-                    </div>
-                </div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:6px">📍 Aktuálne mesto</div>
-                    <div id="sCity" style="font-size:14px;font-weight:600">—</div>
-                    <div id="sCityCoords" style="font-size:11px;color:#6b7fa0;margin-bottom:8px"></div>
-                    <div style="display:flex;gap:6px">
-                        <input id="sCityInput" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px 12px;font-size:13px;flex:1;outline:none;font-family:inherit" placeholder="Zmeniť mesto...">
-                        <button id="sCitySearch" style="padding:8px 14px;font-size:11px;background:#4c6ef5;border:none;color:#fff;border-radius:6px;cursor:pointer;font-family:inherit">Zmeniť</button>
-                    </div>
-                    <div id="sCityResults" class="hidden" style="background:#1a2538;border:1px solid #3b5068;border-radius:8px;max-height:200px;overflow-y:auto;margin-top:4px"></div>
-                </div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:8px">🌡️ Jednotky</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                        <div><div style="font-size:12px;color:#8899b0;margin-bottom:6px">Teplota</div><div id="sTempTg" class="stg"><button class="stb sa" data-v="celsius">°C</button><button class="stb" data-v="fahrenheit">°F</button></div></div>
-                        <div><div style="font-size:12px;color:#8899b0;margin-bottom:6px">Vietor</div><div id="sWindTg" class="stg"><button class="stb sa" data-v="kmh">km/h</button><button class="stb" data-v="ms">m/s</button><button class="stb" data-v="mph">mph</button></div></div>
-                    </div>
-                </div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:8px">📋 Default zobrazenie</div>
-                    <div id="sViewTg" class="stg" style="flex-wrap:wrap"><button class="stb sa" data-v="current">🌡️ Aktuálne</button><button class="stb" data-v="today">📋 Dnes</button><button class="stb" data-v="7d">📆 7 dní</button><button class="stb" data-v="14d">📅 14 dní</button></div>
-                </div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:8px">👁️ Zobrazenie v /pocasie</div>
-                    <div style="display:flex;flex-direction:column;gap:8px">
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspNameday" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">🎂 Meniny</span></label>
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspGraph" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">📊 Graf teploty 24h</span></label>
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspSun" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">☀️ Východ / západ slnka</span></label>
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sDspUv" checked style="accent-color:#4c6ef5;width:16px;height:16px"><span style="font-size:13px">🕶️ UV index</span></label>
-                    </div>
-                </div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0">⭐ Obľúbené mestá</div><button id="sAddFav" style="padding:4px 10px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">+ Pridať</button></div>
-                    <div id="sFavList"><div style="color:#6b7fa0;font-size:12px">Žiadne obľúbené mestá.</div></div>
-                    <div id="sFavForm" class="hidden" style="margin-top:8px">
-                        <div style="display:flex;gap:6px"><input id="sFavInput" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px 12px;font-size:13px;flex:1;outline:none;font-family:inherit" placeholder="Názov mesta..."><button id="sFavSearch" style="padding:8px 14px;font-size:11px;background:#4c6ef5;border:none;color:#fff;border-radius:6px;cursor:pointer;font-family:inherit">Hľadaj</button></div>
-                        <div id="sFavResults" class="hidden" style="background:#1a2538;border:1px solid #3b5068;border-radius:8px;max-height:200px;overflow-y:auto;margin-top:4px"></div>
-                    </div>
-                </div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:14px">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0">🔔 Notifikácie</div><button id="sAddNotif" style="padding:4px 10px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">+ Pridať</button></div>
-                    <div id="sNotifList"><div style="color:#6b7fa0;font-size:12px">Zatiaľ žiadne notifikácie.</div></div>
-                    <div id="sNotifForm" class="hidden" style="margin-top:12px">
-                        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6b7fa0;margin-bottom:6px">Typ notifikácie</div>
-                        <div id="sNotifTypes" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px"></div>
-                        <div id="sNotifTimeRow" class="hidden" style="margin-bottom:8px"><div style="font-size:12px;color:#8899b0;margin-bottom:4px">Čas (HH:MM)</div><input id="sNotifTime" style="background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px 12px;font-size:13px;width:120px;outline:none;font-family:inherit" placeholder="07:00" maxlength="5"></div>
-                        <div style="display:flex;gap:6px"><button id="sSaveNotif" style="flex:1;background:#4c6ef5;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Pridať notifikáciu</button><button id="sCancelNotif" style="padding:8px 12px;font-size:11px;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:6px;cursor:pointer;font-family:inherit">Zrušiť</button></div>
-                    </div>
-                </div>
-                <div style="display:flex;gap:12px;margin-bottom:10px">
-                    <button id="sSaveAll" style="flex:1;background:#4c6ef5;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">💾 Uložiť nastavenia</button>
-                    <button id="sDelete" style="background:none;border:1px solid rgba(248,113,113,.3);color:#f87171;border-radius:8px;padding:10px 16px;font-size:13px;cursor:pointer;font-family:inherit">🗑️</button>
-                </div>
-                <div id="sStatus" class="hidden" style="padding:8px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:8px"></div>
-            </div>
-            <div id="devPanel" class="hidden" style="margin-top:16px;border-top:2px solid #f87171;padding-top:16px">
-                <div style="font-size:13px;font-weight:700;color:#f87171;margin-bottom:12px">🛠️ Developer Panel</div>
-                <div style="background:#1e293b;border:1px solid #3b5068;border-radius:12px;padding:14px;margin-bottom:12px">
-                    <div style="margin-bottom:12px">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>⏰ Čas</span><span id="devTimeVal">12:00</span></div>
-                        <input type="range" id="devTime" min="0" max="23.9" step="0.1" value="12" style="width:100%;accent-color:#f87171">
-                    </div>
-                    <div style="margin-bottom:12px">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>🌡️ Teplota</span><span id="devTempVal">20°C</span></div>
-                        <input type="range" id="devTemp" min="-50" max="50" step="1" value="20" style="width:100%;accent-color:#fb923c">
-                    </div>
-                    <div style="margin-bottom:12px">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>☁️ Oblačnosť</span><span id="devCloudVal">0%</span></div>
-                        <input type="range" id="devCloud" min="0" max="100" step="5" value="0" style="width:100%;accent-color:#8899b0">
-                    </div>
-                    <div style="margin-bottom:12px">
-                        <div style="display:flex;justify-content:space-between;font-size:12px;color:#8899b0;margin-bottom:4px"><span>🌙 Fáza mesiaca (deň)</span><span id="devMoonVal">0</span></div>
-                        <input type="range" id="devMoon" min="0" max="29.5" step="0.5" value="0" style="width:100%;accent-color:#e8e4d4">
-                    </div>
-                    <div style="margin-bottom:12px">
-                        <div style="font-size:12px;color:#8899b0;margin-bottom:4px">🌤️ Počasie</div>
-                        <select id="devWeather" style="width:100%;background:#253648;border:1px solid #3b5068;color:#e8edf5;border-radius:8px;padding:8px;font-size:12px;font-family:inherit">
-                            <option value="0">☀️ 0 — Jasno</option>
-                            <option value="1">🌤️ 1 — Prevažne jasno</option>
-                            <option value="2">⛅ 2 — Polojasno</option>
-                            <option value="3">☁️ 3 — Zamračené</option>
-                            <option value="45">🌫️ 45 — Hmla</option>
-                            <option value="51">🌦️ 51 — Mrholenie slabé</option>
-                            <option value="53">🌧️ 53 — Mrholenie stredné</option>
-                            <option value="61">🌧️ 61 — Dážď slabý</option>
-                            <option value="63">🌧️ 63 — Dážď stredný</option>
-                            <option value="65">🌧️ 65 — Dážď silný</option>
-                            <option value="71">🌨️ 71 — Sneh slabý</option>
-                            <option value="73">🌨️ 73 — Sneh stredný</option>
-                            <option value="75">❄️ 75 — Sneh silný</option>
-                            <option value="80">🌦️ 80 — Prehánky slabé</option>
-                            <option value="82">🌧️ 82 — Prehánky silné</option>
-                            <option value="95">⛈️ 95 — Búrka</option>
-                            <option value="96">⛈️ 96 — Búrka s krúpami</option>
-                        </select>
-                    </div>
-                    <div style="display:flex;gap:8px">
-                        <button id="devApply" style="flex:1;background:#f87171;color:#fff;border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Aplikovať</button>
-                        <button id="devReset" style="flex:1;background:#253648;border:1px solid #3b5068;color:#8899b0;border-radius:8px;padding:8px;font-size:13px;cursor:pointer;font-family:inherit">Reset</button>
-                    </div>
-                </div>
+
+            <div id="tabContent" class="tab-content">
+                <div class="tab-loading hidden" id="tabLoading"><div class="spinner sm"></div></div>
+                <div id="tabInner"></div>
             </div>
         </div>
 
-        <div style="display:none" id="userConfig"><div id="tempToggle"></div><div id="windToggle"></div><div id="favList"></div><div id="addFavForm"><input id="favCityInput"><button id="favSearchBtn"></button><div id="favCityResults"></div><button id="cancelFavBtn"></button></div><button id="addFavBtn"></button><div id="notifList"></div><button id="addNotifBtn"></button><div id="addNotifForm"><div id="wizStep1"><div id="notifTypeGrid"></div><button id="cancelNotifBtn"></button></div><div id="wizStep2Mode"><button id="modeTimedBtn"></button><button id="modeInstantBtn"></button><input id="notifTime"><div id="destPickerMode"></div><div id="channelPickerMode"></div><button id="saveNotifBtn"></button><button id="wizBackBtn2Mode"></button></div><div id="wizStep2Instant"><div id="destPickerInstant"></div><div id="channelPickerInstant"></div><button id="saveNotifInstantBtn"></button><button id="wizBackBtn2Instant"></button></div><div id="wizStep2Offset"><div id="offsetToggle"></div><div id="destPickerOffset"></div><div id="channelPickerOffset"></div><button id="saveNotifOffsetBtn"></button><button id="wizBackBtn2Offset"></button></div><div id="wizStep2Changes"><div id="changeGrid"></div><div id="destPickerChanges"></div><div id="channelPickerChanges"></div><button id="saveNotifChangesBtn"></button><button id="wizBackBtn2Changes"></button></div><div id="wizStep2Severe"><div id="severeGrid"></div><button id="sevModeTimedBtn"></button><button id="sevModeInstantBtn"></button><input id="sevNotifTime"><div id="destPickerSevere"></div><div id="channelPickerSevere"></div><button id="saveNotifSevereBtn"></button><button id="wizBackBtn2Severe"></button></div><div id="wizStep2Moon"><div id="moonPhaseGrid"></div><div id="destPickerMoon"></div><div id="channelPickerMoon"></div><button id="saveNotifMoonBtn"></button><button id="wizBackBtn2Moon"></button></div></div><div id="editNotifForm"><div id="editNotifContent"></div><button id="saveEditNotifBtn"></button><button id="cancelEditNotifBtn"></button></div><button id="saveSettingsBtn"></button><button id="deleteUserBtn"></button><div id="saveStatus"></div></div>
+        <div class="footer">Powered by Open-Meteo · Nimbus v3.0</div>
 
-        <div class="flex items-center justify-center gap-2 py-4 text-xs" style="color:#6b7fa0;">
-            <span>Powered by <a href="https://open-meteo.com" target="_blank" style="color:#8899b0;text-decoration:underline;" onmouseover="this.style.color='#e8edf5'" onmouseout="this.style.color='#8899b0'">Open-Meteo</a></span>
-            <span>·</span>
-            <span>Nimbus v2.0</span>
-        </div>
+        <div id="devPanel" class="dev-panel hidden"></div>
     </div>
 </div>
 
-<div id="mobileFabs" class="mobile-fabs">
-    <button id="fabRadar" class="fab" title="Radar">🗺️</button>
-    <button id="fabSettings" class="fab" title="Nastavenia">⚙️</button>
+<div id="settingsOverlay" class="overlay hidden">
+    <div class="overlay-bg" id="settingsClose"></div>
+    <div class="settings-sheet" id="settingsSheet"></div>
 </div>
 
-<div id="radarOverlay" class="radar-overlay hidden">
-    <div id="radarMapContainer" class="radar-map-container">
-        <iframe id="radarFrame" style="position:absolute;top:-55px;left:0;width:calc(100% + 50px);height:calc(100% + 275px);border:none" allowfullscreen></iframe>
-        <button id="radarCloseBtn" class="radar-close-btn">✕ Zavrieť</button>
-        <div class="radar-city-label" id="radarCityLabel"></div>
-        <div class="radar-legend" id="radarLegend">
-            <div class="radar-legend-title" id="radarLegendTitle">Zrážky (mm/h)</div>
-            <div class="radar-legend-bar" id="radarLegendBar"></div>
-            <div class="radar-legend-labels" id="radarLegendLabels"></div>
-        </div>
-        <div class="radar-bottom-bar">
-            <div class="radar-layers">
-                <button class="radar-layer-btn active" data-layer="rain">🌧️ Zrážky</button>
-                <button class="radar-layer-btn" data-layer="temp">🌡️ Teplota</button>
-                <button class="radar-layer-btn" data-layer="wind">💨 Vietor</button>
-                <button class="radar-layer-btn" data-layer="clouds">☁️ Oblaky</button>
-                <button class="radar-layer-btn" data-layer="radar">📡 Radar</button>
-                <button class="radar-layer-btn" data-layer="snowcover">❄️ Sneh</button>
-                <button class="radar-layer-btn" data-layer="pressure">📊 Tlak</button>
-                <button class="radar-layer-btn" data-layer="thunder">⛈️ Búrky</button>
-            </div>
-        </div>
+<div id="radarOverlay" class="overlay hidden">
+    <div class="radar-container">
+        <iframe id="radarFrame" class="radar-frame" allowfullscreen></iframe>
+        <button id="radarCloseBtn" class="radar-close">✕ Zavrieť</button>
     </div>
 </div>
 
-<script src="app.js?v=20260320"></script>
+<script src="sky.js?v=20260414"></script>
+<script src="app.js?v=20260414"></script>
 </body>
 </html>

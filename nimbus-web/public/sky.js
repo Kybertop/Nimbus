@@ -1,252 +1,378 @@
 const Sky = (() => {
     const GRADS = {
-        dawn:    'linear-gradient(180deg, #1a1a4e 0%, #4a2060 20%, #c0506a 45%, #f0905a 65%, #ffd080 85%, #ffe8a0 100%)',
-        morning: 'linear-gradient(180deg, #1a6abf 0%, #4da8e8 30%, #7dc8f8 60%, #aadcf8 80%, #d0eefa 100%)',
-        day:     'linear-gradient(180deg, #1565c0 0%, #1e88e5 25%, #42a5f5 55%, #90caf9 80%, #bbdefb 100%)',
-        evening: 'linear-gradient(180deg, #0d47a1 0%, #1565c0 20%, #e65100 55%, #ff8f00 75%, #ffca28 100%)',
-        dusk:    'linear-gradient(180deg, #0d0d30 0%, #1a1040 25%, #6a2050 50%, #c05040 70%, #e08050 100%)',
-        night:   'linear-gradient(180deg, #020410 0%, #060820 30%, #0a0d30 60%, #0f1540 100%)',
-        overcast_day:   'linear-gradient(180deg, #2e3440 0%, #3d4555 30%, #5a6275 60%, #7a8290 85%, #9aa0a8 100%)',
-        overcast_night: 'linear-gradient(180deg, #0a0c14 0%, #101420 30%, #181c28 60%, #202430 100%)',
-        rain_day:       'linear-gradient(180deg, #1a2030 0%, #252e40 25%, #364050 55%, #4a5560 80%, #5e6a72 100%)',
-        rain_night:     'linear-gradient(180deg, #060810 0%, #0c1018 25%, #121620 55%, #181c26 100%)',
-        snow_day:       'linear-gradient(180deg, #3a4050 0%, #505868 30%, #6e7888 60%, #909aa4 85%, #b8c0c8 100%)',
-        snow_night:     'linear-gradient(180deg, #0c0e14 0%, #141820 30%, #1c2030 60%, #242830 100%)',
-        storm:          'linear-gradient(180deg, #080810 0%, #10101e 20%, #1a1826 40%, #222030 65%, #2e2a30 100%)',
+        storm:'linear-gradient(180deg,#1a1a2e 0%,#2a2a40 40%,#3a3a50 100%)',
+        snow:'linear-gradient(180deg,#607080 0%,#7e8e9c 40%,#98a8b4 70%,#b0bcc6 100%)',
+        rain:'linear-gradient(180deg,#405060 0%,#5a7080 35%,#708898 65%,#889ca8 100%)',
+        night_storm:'linear-gradient(180deg,#0a0a18 0%,#141428 35%,#1e1e35 65%,#252540 100%)',
+        night_rain:'linear-gradient(180deg,#0c1020 0%,#182038 35%,#223050 60%,#2a3858 100%)',
+        night_snow:'linear-gradient(180deg,#151828 0%,#222840 35%,#303852 60%,#3a4260 100%)',
+        dawn:'linear-gradient(180deg,#2a2050 0%,#5a3868 22%,#a85870 48%,#d08868 70%,#e8b478 90%)',
+        morning:'linear-gradient(180deg,#1a60a0 0%,#2e80c0 30%,#4a9cd4 60%,#6ab4e0 85%)',
+        day:'linear-gradient(180deg,#1558a0 0%,#1e72b8 22%,#2e8cd0 48%,#48a4dc 70%,#62b8e6 90%)',
+        evening:'linear-gradient(180deg,#1a5890 0%,#2870a0 18%,#b07040 48%,#d08838 68%,#e0a048 88%)',
+        dusk:'linear-gradient(180deg,#181830 0%,#282040 25%,#5a3850 52%,#904858 76%,#b06858 95%)',
+        night:'linear-gradient(180deg,#080e20 0%,#101830 32%,#182040 65%,#202848 100%)',
     };
 
-    let starsCtx, starsCanvas, stars = [];
-    let wCanvas, wCtx, particles = [], wMode = null, wRaf = null, wStart = null;
-    let lightningTimer = null;
+    const HORIZONS = {
+        dawn:'linear-gradient(0deg,rgba(240,180,100,0.25),transparent)',
+        morning:'linear-gradient(0deg,rgba(150,200,240,0.1),transparent)',
+        day:'linear-gradient(0deg,rgba(150,200,240,0.1),transparent)',
+        evening:'linear-gradient(0deg,rgba(255,140,50,0.2),transparent)',
+        dusk:'linear-gradient(0deg,rgba(160,80,60,0.2),transparent)',
+        night:'linear-gradient(0deg,rgba(20,30,60,0.15),transparent)',
+    };
+
+    let canvas, ctx, stars = [], particles = [], lightning = {next:0,opacity:0};
+    let rafId = null, lastTs = 0;
+    let currentCode = 0, currentHour = 12, currentPhase = 'day';
+    let container;
 
     function phase(h) {
-        if (h >= 5 && h < 7) return 'dawn';
-        if (h >= 7 && h < 10) return 'morning';
-        if (h >= 10 && h < 16) return 'day';
-        if (h >= 16 && h < 19) return 'evening';
-        if (h >= 19 && h < 21) return 'dusk';
+        if (h>=5&&h<7) return 'dawn';
+        if (h>=7&&h<10) return 'morning';
+        if (h>=10&&h<16) return 'day';
+        if (h>=16&&h<19) return 'evening';
+        if (h>=19&&h<21) return 'dusk';
         return 'night';
     }
 
     function sunPos(h) {
-        if (h < 6 || h > 20) return null;
-        const p = (h - 6) / 14;
-        return { x: 10 + p * 80, y: 65 - Math.sin(p * Math.PI) * 50 };
+        if (h<6||h>20) return null;
+        const p=(h-6)/14;
+        return {x:15+p*70, y:60-Math.sin(p*Math.PI)*45};
     }
 
     function moonPos(h) {
         let p;
-        if (h >= 20) p = (h - 20) / 10;
-        else if (h <= 6) p = (4 + h) / 10;
+        if (h>=19) p=(h-19)/11;
+        else if (h<6) p=(h+5)/11;
         else return null;
-        return { x: 10 + p * 80, y: 65 - Math.sin(p * Math.PI) * 45 };
+        return {x:20+p*60, y:55-Math.sin(p*Math.PI)*40};
     }
 
-    function initStars() {
-        starsCanvas = document.getElementById('starsCanvas');
-        if (!starsCanvas) return;
-        starsCtx = starsCanvas.getContext('2d');
-        const rect = starsCanvas.getBoundingClientRect();
-        starsCanvas.width = rect.width;
-        starsCanvas.height = rect.height;
-        stars = Array.from({ length: 80 }, () => ({
-            x: Math.random() * starsCanvas.width,
-            y: Math.random() * starsCanvas.height * 0.7,
-            r: 0.5 + Math.random() * 1.5,
-            a: 0.3 + Math.random() * 0.7,
-            twinkle: 2 + Math.random() * 4,
-            offset: Math.random() * Math.PI * 2,
-        }));
-    }
-
-    function drawStars(show) {
-        if (!starsCtx) return;
-        starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
-        if (!show) return;
-        const t = Date.now() / 1000;
-        stars.forEach(s => {
-            const a = s.a * (0.5 + 0.5 * Math.sin(t / s.twinkle + s.offset));
-            starsCtx.beginPath();
-            starsCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-            starsCtx.fillStyle = `rgba(220,225,255,${a})`;
-            starsCtx.fill();
-        });
-    }
-
-    function update(code, isDay, hour) {
-        const ph = phase(hour);
-        const isRain = [51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code);
-        const isSnow = [71,73,75,77,85,86].includes(code);
-        const isStorm = [95,96,99].includes(code);
-        const isOvc = [3,45,48].includes(code);
-        const sev = (WMO_DATA[code] || {}).severity || 0;
-
-        let grad;
-        if (isStorm) grad = GRADS.storm;
-        else if (isSnow) grad = isDay ? GRADS.snow_day : GRADS.snow_night;
-        else if (isRain) grad = isDay ? GRADS.rain_day : GRADS.rain_night;
-        else if (isOvc) grad = isDay ? GRADS.overcast_day : GRADS.overcast_night;
-        else grad = GRADS[ph];
-
-        document.getElementById('skyGradient').style.background = grad;
-
-        const showStars = ph === 'night' || ph === 'dusk';
-        drawStars(showStars);
-
-        const sp = sunPos(hour);
-        const sunEl = document.getElementById('sunWrap');
-        if (sp && isDay && sev < 3) {
-            gsap.to(sunEl, { left: sp.x + '%', top: sp.y + '%', opacity: 1, duration: 2, ease: 'power2.out' });
-            sunEl.style.transform = 'translate(-50%, -50%)';
-        } else {
-            gsap.to(sunEl, { opacity: 0, duration: 1 });
-        }
-
-        const mp = moonPos(hour);
-        const moonEl = document.getElementById('moonWrap');
-        if (mp && !isDay) {
-            gsap.to(moonEl, { left: mp.x + '%', top: mp.y + '%', opacity: 1, duration: 2, ease: 'power2.out' });
-            moonEl.style.transform = 'translate(-50%, -50%)';
-        } else {
-            gsap.to(moonEl, { opacity: 0, duration: 1 });
-        }
-
-        const clouds = document.querySelectorAll('.cloud');
-        const cloudLevel = isOvc || sev >= 1 ? 0.85 : code === 2 ? 0.4 : code <= 1 ? 0 : 0.7;
-        clouds.forEach((c, i) => {
-            const op = Math.max(0, cloudLevel - 0.1 * i);
-            if (op > 0) {
-                gsap.to(c, { opacity: op, duration: 1.5 });
-                if (!c._moving) {
-                    c._moving = true;
-                    const startX = -200 - i * 40;
-                    const endX = window.innerWidth + 200;
-                    const dur = 40 + i * 15;
-                    gsap.fromTo(c, { x: startX }, { x: endX, duration: dur, repeat: -1, ease: 'none' });
-                }
-                if (sev >= 2) {
-                    c.querySelector('.cloud-body').style.background = sev >= 3
-                        ? 'linear-gradient(180deg, #5a5a6a 0%, #3a3a4a 100%)'
-                        : 'linear-gradient(180deg, #8a9aaa 0%, #6a7a8a 100%)';
-                } else {
-                    c.querySelector('.cloud-body').style.background = '';
-                }
-            } else {
-                gsap.to(c, { opacity: 0, duration: 1 });
-            }
-        });
-
-        toggleWeatherFx(isRain || isStorm ? 'rain' : isSnow ? 'snow' : null, sev);
-        isStorm ? startLightning() : stopLightning();
-    }
-
-    function toggleWeatherFx(mode, sev) {
-        if (mode === wMode && wRaf) return;
-        stopWeatherFx();
-        if (!mode) return;
-        wCanvas = document.getElementById('weatherCanvas');
-        if (!wCanvas) return;
-        wCtx = wCanvas.getContext('2d');
-        const rect = wCanvas.getBoundingClientRect();
-        wCanvas.width = rect.width;
-        wCanvas.height = rect.height;
-        wMode = mode;
-        const W = wCanvas.width, H = wCanvas.height;
-
-        if (mode === 'rain') {
-            const count = sev >= 3 ? 100 : sev >= 2 ? 60 : 35;
-            particles = Array.from({ length: count }, () => ({
-                x: Math.random() * W, y: Math.random() * H,
-                len: sev >= 3 ? 20 + Math.random() * 16 : 12 + Math.random() * 10,
-                w: sev >= 3 ? 2 + Math.random() * 1.5 : 1.2 + Math.random() * 1,
-                spd: sev >= 3 ? 800 + Math.random() * 400 : 500 + Math.random() * 300,
-                op: 0.35 + Math.random() * 0.35, drift: -0.1,
-            }));
-        } else {
-            particles = Array.from({ length: 50 }, () => ({
-                x: Math.random() * W, y: Math.random() * H,
-                size: 2 + Math.random() * 5, spd: 30 + Math.random() * 50,
-                drift: (Math.random() - 0.5) * 25, op: 0.5 + Math.random() * 0.4,
-                angle: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 1.2,
-            }));
-        }
-        wStart = null;
-        wRaf = requestAnimationFrame(weatherLoop);
-    }
-
-    let _lastTs = null;
-    function weatherLoop(ts) {
-        if (!wStart) wStart = ts;
-        const dt = Math.min(0.05, (ts - (_lastTs || ts)) / 1000);
-        _lastTs = ts;
-        const W = wCanvas.width, H = wCanvas.height;
-        wCtx.clearRect(0, 0, W, H);
-
-        if (wMode === 'rain') {
-            for (const p of particles) {
-                p.y += p.spd * dt;
-                p.x += p.drift * p.spd * dt;
-                if (p.y > H + p.len) { p.y = -p.len; p.x = Math.random() * W; }
-                wCtx.globalAlpha = p.op;
-                wCtx.strokeStyle = 'rgba(180,215,255,1)';
-                wCtx.lineWidth = p.w;
-                wCtx.beginPath();
-                wCtx.moveTo(p.x, p.y);
-                wCtx.lineTo(p.x + p.drift * p.len * 0.8, p.y + p.len);
-                wCtx.stroke();
-            }
-        } else if (wMode === 'snow') {
-            for (const p of particles) {
-                p.y += p.spd * dt;
-                p.x += Math.sin(p.angle) * p.drift * dt;
-                p.angle += p.spin * dt;
-                if (p.y > H + p.size) { p.y = -p.size; p.x = Math.random() * W; }
-                wCtx.globalAlpha = p.op;
-                wCtx.fillStyle = 'rgba(220,235,255,1)';
-                wCtx.beginPath();
-                wCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                wCtx.fill();
-            }
-        }
-        wCtx.globalAlpha = 1;
-
-        if (ts - wStart < 12000) wRaf = requestAnimationFrame(weatherLoop);
-        else wRaf = null;
-    }
-
-    function stopWeatherFx() {
-        if (wRaf) { cancelAnimationFrame(wRaf); wRaf = null; }
-        wMode = null;
-        particles = [];
-        _lastTs = null;
-        if (wCtx && wCanvas) wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
-    }
-
-    function startLightning() {
-        if (lightningTimer) return;
-        const el = document.getElementById('lightning');
-        lightningTimer = setInterval(() => {
-            if (Math.random() < 0.3) {
-                gsap.timeline()
-                    .to(el, { opacity: 0.8, duration: 0.05 })
-                    .to(el, { opacity: 0, duration: 0.12 })
-                    .to(el, { opacity: Math.random() * 0.5, duration: 0.04, delay: 0.08 })
-                    .to(el, { opacity: 0, duration: 0.1 });
-            }
-        }, 2500);
-    }
-
-    function stopLightning() {
-        if (lightningTimer) { clearInterval(lightningTimer); lightningTimer = null; }
-        gsap.to(document.getElementById('lightning'), { opacity: 0, duration: 0.3 });
+    function getMoonPhase(date) {
+        const d = date||new Date();
+        const jd = Math.floor(365.25*(d.getFullYear()+4716))+Math.floor(30.6001*(d.getMonth()<2?d.getMonth()+14:d.getMonth()+2))+d.getDate()-1524.5;
+        const p = (((jd-2451549.5)/29.53059)%1+1)%1;
+        const illum = Math.round((1-Math.cos(p*2*Math.PI))*50);
+        const waxing = p<0.5;
+        return {illum, waxing};
     }
 
     function init() {
-        initStars();
-        const h = new Date().getHours();
-        update(0, h >= 6 && h < 20 ? 1 : 0, h);
-        gsap.from('.nimbus-card', { y: 30, opacity: 0, duration: 0.8, stagger: 0.12, ease: 'power3.out', delay: 0.3 });
+        container = document.getElementById('skyScene');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const gradDiv = document.createElement('div');
+        gradDiv.className = 'sky-gradient';
+        gradDiv.id = 'skyGrad';
+        container.appendChild(gradDiv);
+
+        const horizonDiv = document.createElement('div');
+        horizonDiv.className = 'sky-horizon';
+        horizonDiv.id = 'skyHorizon';
+        container.appendChild(horizonDiv);
+
+        canvas = document.createElement('canvas');
+        canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+        container.appendChild(canvas);
+        ctx = canvas.getContext('2d');
+
+        const resize = () => {
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+        };
+        resize();
+        window.addEventListener('resize', resize);
+
+        stars = Array.from({length:35}, () => ({
+            x:Math.random(), y:Math.random()*0.6,
+            r:0.4+Math.random()*1.2,
+            speed:1.5+Math.random()*3,
+            offset:Math.random()*Math.PI*2,
+        }));
+
+        rafId = requestAnimationFrame(render);
     }
 
-    return { init, update, drawStars };
+    function render(ts) {
+        const dt = Math.min((ts-lastTs)/1000, 0.05);
+        lastTs = ts;
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+
+        const ph = currentPhase;
+        const showStars = ph==='night'||ph==='dusk';
+        const code = currentCode;
+        const isRain = [51,53,55,61,63,65,66,67,80,81,82].includes(code);
+        const isSnow = [71,73,75,77,85,86].includes(code);
+        const isStorm = [95,96,99].includes(code);
+        const isFog = [45,48].includes(code);
+
+        if (showStars) {
+            const t = ts/1000;
+            stars.forEach(s => {
+                const a = 0.3+0.7*(0.5+0.5*Math.sin(t/s.speed+s.offset));
+                const bright = ph==='night'?a:a*0.4;
+                ctx.beginPath();
+                ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(220,230,255,${bright})`;
+                ctx.fill();
+            });
+        }
+
+        if (isRain||isStorm) {
+            const wind = isStorm?0.15:0.05;
+            ctx.strokeStyle = isStorm?'rgba(180,200,220,0.5)':'rgba(180,200,220,0.35)';
+            particles.forEach(p => {
+                p.y += p.speed*dt*1.8;
+                p.x += wind*dt;
+                if (p.y>1) {p.y=0;p.x=Math.random();}
+                if (p.x>1) p.x=0;
+                const len = isStorm?p.size*18:p.size*12;
+                ctx.lineWidth = p.size*0.6;
+                ctx.beginPath();
+                ctx.moveTo(p.x*W, p.y*H);
+                ctx.lineTo(p.x*W+wind*len*3, p.y*H+len);
+                ctx.stroke();
+            });
+        }
+
+        if (isSnow) {
+            const t = ts/1000;
+            particles.forEach(p => {
+                p.y += p.speed*dt*0.5;
+                p.wobble += dt*1.5;
+                p.x += Math.sin(p.wobble)*0.0008+p.drift*dt*0.1;
+                if (p.y>1) {p.y=-0.02;p.x=Math.random();}
+                if (p.x>1) p.x=0;
+                if (p.x<0) p.x=1;
+                const a = 0.4+0.3*Math.sin(t+p.wobble);
+                ctx.beginPath();
+                ctx.arc(p.x*W, p.y*H, p.size, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(240,245,255,${a})`;
+                ctx.fill();
+            });
+        }
+
+        if (isStorm) {
+            if (ts > lightning.next) {
+                if (Math.random()<0.3) {
+                    lightning.opacity = 0.6+Math.random()*0.3;
+                    lightning.next = ts+80+Math.random()*120;
+                } else {
+                    lightning.next = ts+1500+Math.random()*3000;
+                }
+            }
+            if (lightning.opacity > 0) {
+                ctx.fillStyle = `rgba(200,210,255,${lightning.opacity})`;
+                ctx.fillRect(0, 0, W, H);
+                lightning.opacity *= 0.85;
+                if (lightning.opacity < 0.01) lightning.opacity = 0;
+            }
+        }
+
+        if (isFog) {
+            const grd = ctx.createLinearGradient(0, H*0.3, 0, H);
+            grd.addColorStop(0, 'rgba(180,190,200,0)');
+            grd.addColorStop(0.5, 'rgba(180,190,200,0.12)');
+            grd.addColorStop(1, 'rgba(180,190,200,0.2)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        rafId = requestAnimationFrame(render);
+    }
+
+    function update(code, hour) {
+        currentCode = code;
+        currentHour = hour;
+        currentPhase = phase(hour);
+
+        const isRain = [51,53,55,61,63,65,66,67,80,81,82].includes(code);
+        const isSnow = [71,73,75,77,85,86].includes(code);
+        const isStorm = [95,96,99].includes(code);
+        const isOvc = [3,45,48].includes(code);
+        const severity = isStorm?3:(isRain||isSnow)?2:isOvc?1:0;
+        const ph = currentPhase;
+
+        let gradKey;
+        const isNight = ph==='night'||ph==='dusk';
+        if (isStorm) gradKey = isNight?'night_storm':'storm';
+        else if (isSnow) gradKey = isNight?'night_snow':'snow';
+        else if (isRain) gradKey = isNight?'night_rain':'rain';
+        else gradKey = ph;
+
+        const gradEl = document.getElementById('skyGrad');
+        if (gradEl) gradEl.style.background = GRADS[gradKey]||GRADS.day;
+
+        const horizEl = document.getElementById('skyHorizon');
+        if (horizEl) horizEl.style.background = HORIZONS[ph]||HORIZONS.day;
+
+        const pCount = isStorm?60:isRain?35:isSnow?25:0;
+        if (pCount !== particles.length) {
+            particles = Array.from({length:pCount}, () => ({
+                x:Math.random(), y:Math.random(),
+                speed: isSnow?0.2+Math.random()*0.4:isStorm?1.2+Math.random()*0.8:0.6+Math.random()*0.6,
+                size: isSnow?1+Math.random()*2.5:isStorm?1.5+Math.random():0.8+Math.random()*0.8,
+                drift: isSnow?(Math.random()-0.5)*0.3:0,
+                wobble: Math.random()*Math.PI*2,
+            }));
+        }
+
+        const showSun = (ph==='day'||ph==='morning'||ph==='evening'||ph==='dawn')&&!isStorm&&!isOvc;
+        const showMoon = (ph==='night'||ph==='dusk')&&!isOvc&&!isStorm;
+        const cloudCount = isStorm?5:isOvc||isRain||isSnow?4:code===2?2:code<=1?0:1;
+        container.querySelectorAll('.sky-sun,.sky-moon,.cloud-layer').forEach(el => el.remove());
+
+        if (showSun) {
+            const sp = sunPos(hour);
+            if (sp) {
+                const el = document.createElement('div');
+                el.className = 'sky-sun';
+                el.style.cssText = `left:${sp.x}%;top:${sp.y}%;transform:translate(-50%,-50%)`;
+                el.innerHTML = `
+                    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40vmin;height:40vmin;border-radius:50%;background:radial-gradient(circle,rgba(250,232,190,0.18) 0%,rgba(242,218,160,0.06) 35%,transparent 65%)"></div>
+                    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(255,238,190,0.42) 0%,rgba(252,225,160,0.22) 18%,rgba(248,212,135,0.08) 38%,rgba(242,200,115,0.02) 55%,transparent 72%)"></div>
+                    <div style="position:relative;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 44% 40%,#fff9f0,#f8e6c0 40%,#ecd498 70%,#dfc280);filter:blur(1.5px);box-shadow:0 0 18px 8px rgba(248,228,175,0.45),0 0 40px 16px rgba(242,215,148,0.22),0 0 70px 28px rgba(235,200,125,0.08)"></div>
+                    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-35deg);width:220px;height:1.5px;border-radius:1px;background:linear-gradient(90deg,transparent 5%,rgba(255,240,210,0.06) 25%,rgba(255,242,218,0.12) 42%,rgba(255,244,222,0.14) 50%,rgba(255,242,218,0.12) 58%,rgba(255,240,210,0.06) 75%,transparent 95%);animation:flareA 8s ease-in-out infinite"></div>
+                    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(58deg);width:160px;height:1px;border-radius:1px;background:linear-gradient(90deg,transparent 10%,rgba(255,240,212,0.04) 30%,rgba(255,242,216,0.09) 46%,rgba(255,243,220,0.11) 54%,rgba(255,240,212,0.04) 70%,transparent 90%);animation:flareB 11s ease-in-out infinite"></div>
+                    <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-75deg);width:110px;height:0.8px;border-radius:1px;background:linear-gradient(90deg,transparent 15%,rgba(255,242,218,0.03) 35%,rgba(255,243,220,0.07) 48%,rgba(255,243,220,0.07) 52%,rgba(255,242,218,0.03) 65%,transparent 85%);animation:flareC 14s ease-in-out infinite"></div>
+                `;
+                container.appendChild(el);
+            }
+        }
+
+        if (showMoon) {
+            const mp = moonPos(hour);
+            if (mp) {
+                const moon = getMoonPhase();
+                const glowStrength = Math.max(0.08, moon.illum/100*0.35);
+                const r = 28, s = r/12, dark = '#1a2030';
+                const frac = Math.max(0,Math.min(100,moon.illum))/100;
+                let svgContent;
+
+                if (frac < 0.01) {
+                    svgContent = `<circle cx="${r}" cy="${r}" r="${r}" fill="${dark}"/>`;
+                } else if (frac > 0.99) {
+                    svgContent = `<circle cx="${r}" cy="${r}" r="${r}" fill="#e8e2d0"/><circle cx="${10*s}" cy="${8*s}" r="${3.5*s}" fill="#c8c0a0" opacity="0.45"/><circle cx="${16*s}" cy="${6*s}" r="${2.2*s}" fill="#bab298" opacity="0.4"/><circle cx="${7*s}" cy="${15*s}" r="${2.8*s}" fill="#c0b89c" opacity="0.35"/><circle cx="${17*s}" cy="${15*s}" r="${2*s}" fill="#b8b090" opacity="0.3"/><circle cx="${12*s}" cy="${11*s}" r="${1.6*s}" fill="#b0a888" opacity="0.28"/>`;
+                } else {
+                    const f = frac*2-1, bulge = Math.max(0.1,Math.abs(f)*r);
+                    const lp = moon.waxing
+                        ? `M ${r},0 A ${r},${r} 0 0,0 ${r},${r*2} A ${bulge},${r} 0 0,${f>=0?0:1} ${r},0 Z`
+                        : `M ${r},0 A ${r},${r} 0 0,1 ${r},${r*2} A ${bulge},${r} 0 0,${f>=0?1:0} ${r},0 Z`;
+                    svgContent = `<defs><clipPath id="bgmc"><path d="${lp}"/></clipPath></defs><circle cx="${r}" cy="${r}" r="${r}" fill="${dark}"/><g clip-path="url(#bgmc)"><circle cx="${r}" cy="${r}" r="${r}" fill="#e8e2d0"/><circle cx="${10*s}" cy="${8*s}" r="${3.5*s}" fill="#c8c0a0" opacity="0.45"/><circle cx="${16*s}" cy="${6*s}" r="${2.2*s}" fill="#bab298" opacity="0.4"/><circle cx="${7*s}" cy="${15*s}" r="${2.8*s}" fill="#c0b89c" opacity="0.35"/><circle cx="${17*s}" cy="${15*s}" r="${2*s}" fill="#b8b090" opacity="0.3"/><circle cx="${12*s}" cy="${11*s}" r="${1.6*s}" fill="#b0a888" opacity="0.28"/></g>`;
+                }
+
+                const sz = r*2;
+                const glowSize = 15+moon.illum/100*25;
+                const el = document.createElement('div');
+                el.className = 'sky-moon';
+                el.style.cssText = `left:${mp.x}%;top:${mp.y}%;transform:translate(-50%,-50%)`;
+                el.innerHTML = `
+                    <div style="position:relative;width:${sz+60}px;height:${sz+60}px;display:flex;align-items:center;justify-content:center">
+                        <div style="position:absolute;inset:-10px;border-radius:50%;background:radial-gradient(circle,rgba(220,215,190,${glowStrength*1.2}) 0%,rgba(210,205,180,${glowStrength*0.5}) 35%,rgba(200,195,170,${glowStrength*0.15}) 55%,transparent 70%);animation:moonGlow 5s ease-in-out infinite"></div>
+                        <div style="position:relative;filter:drop-shadow(0 0 ${glowSize}px rgba(215,210,185,${glowStrength*0.5})) drop-shadow(0 0 ${glowSize*0.4}px rgba(220,215,195,${glowStrength*0.3}))">
+                            <svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" xmlns="http://www.w3.org/2000/svg">${svgContent}</svg>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(el);
+            }
+        }
+
+        function generateCloudStrip(w, h, col) {
+            const pad = 40;
+            const cw = w, ch = h + pad * 2;
+            const c = document.createElement('canvas');
+            c.width = cw; c.height = ch;
+            const ctx = c.getContext('2d');
+            const numClouds = 2 + Math.floor(Math.random() * 2);
+
+            ctx.fillStyle = col;
+            for (let i = 0; i < numClouds; i++) {
+                const cx = cw * 0.12 + Math.random() * cw * 0.76;
+                const cy = ch * 0.48;
+                const rw = 55 + Math.random() * 110;
+                const rh = 16 + Math.random() * 26;
+                const flatness = 0.3 + Math.random() * 0.5;
+                const density = 50 + Math.floor(Math.random() * 50);
+                const circleMin = 6 + Math.random() * 4;
+                const circleMax = 10 + Math.random() * 10;
+
+                for (let n = 0; n < density; n++) {
+                    const a = Math.random() * Math.PI * 2;
+                    const d = Math.random();
+                    const px = cx + Math.cos(a) * d * rw;
+                    const py = cy + Math.sin(a) * d * rh * flatness;
+                    const pr = circleMin + (1 - d) * circleMax + Math.random() * 4;
+                    ctx.beginPath();
+                    ctx.arc(px, py, pr, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                const bumps = 1 + Math.floor(Math.random() * 4);
+                for (let b = 0; b < bumps; b++) {
+                    const bx = cx + (Math.random() - 0.5) * rw * 1.5;
+                    const by = cy - rh * 0.5 - Math.random() * rh;
+                    const br = 10 + Math.random() * 18;
+                    const bd = 15 + Math.floor(Math.random() * 15);
+                    for (let n = 0; n < bd; n++) {
+                        const a = Math.random() * Math.PI * 2;
+                        const d = Math.random();
+                        const px = bx + Math.cos(a) * d * br;
+                        const py = by + Math.sin(a) * d * br * 0.7;
+                        const pr = 4 + (1 - d) * 8 + Math.random() * 3;
+                        ctx.beginPath();
+                        ctx.arc(px, py, pr, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            const c2 = document.createElement('canvas');
+            c2.width = cw; c2.height = ch;
+            const ctx2 = c2.getContext('2d');
+            ctx2.filter = 'blur(8px)';
+            ctx2.drawImage(c, 0, 0);
+            ctx2.filter = 'none';
+            ctx2.globalCompositeOperation = 'destination-out';
+            const fade = 100;
+            let g = ctx2.createLinearGradient(0, 0, fade, 0);
+            g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx2.fillStyle = g; ctx2.fillRect(0, 0, fade, ch);
+            g = ctx2.createLinearGradient(cw - fade, 0, cw, 0);
+            g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+            ctx2.fillStyle = g; ctx2.fillRect(cw - fade, 0, fade, ch);
+            g = ctx2.createLinearGradient(0, 0, 0, pad);
+            g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx2.fillStyle = g; ctx2.fillRect(0, 0, cw, pad);
+            g = ctx2.createLinearGradient(0, ch - pad, 0, ch);
+            g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+            ctx2.fillStyle = g; ctx2.fillRect(0, ch - pad, cw, pad);
+            ctx2.globalCompositeOperation = 'source-over';
+            return c2.toDataURL();
+        }
+
+        const cloudVis = severity >= 3 ? 0.75 : severity >= 2 ? 0.55 : severity >= 1 ? 0.4 : cloudCount > 0 ? 0.3 : 0;
+        let cCol;
+        if (severity >= 3) cCol = 'rgba(105,110,125,0.7)';
+        else if (severity >= 2) cCol = 'rgba(175,185,205,0.55)';
+        else if (severity >= 1) cCol = 'rgba(215,225,240,0.45)';
+        else cCol = 'rgba(240,246,255,0.4)';
+
+        if (cloudVis > 0) {
+            [{w:1300,h:200,dur:50,y:'0%'},{w:1000,h:180,dur:38,y:'8%'},{w:1600,h:220,dur:65,y:'3%'},{w:850,h:160,dur:30,y:'16%'}].forEach((s,i) => {
+                const tex = generateCloudStrip(s.w, s.h, cCol);
+                const el = document.createElement('div');
+                el.className = 'cloud-layer';
+                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none`;
+                container.appendChild(el);
+            });
+        }
+    }
+
+    return { init, update, sunPos, moonPos, getMoonPhase };
 })();

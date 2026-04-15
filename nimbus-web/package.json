@@ -1,7 +1,7 @@
 {
   "name": "nimbus-web",
-  "version": "1.0.0",
-  "description": "Nimbus Discord Bot — Web Panel",
+  "version": "2.0.0",
+  "description": "Nimbus Weather — Web Panel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

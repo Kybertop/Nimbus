@@ -37,7 +37,6 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
     process.exit(1);
 }
 
-// ── File-persisted sessions ───────────────────────────────────
 const fs2 = require('fs');
 const SESSIONS_FILE = require('path').join(__dirname, 'data', 'sessions.json');
 
@@ -84,7 +83,6 @@ function getSession(req) {
 }
 
 function setSessionCookie(res, sessionId) {
-    // No SameSite attribute at all — works in Firefox, Chrome, Opera on localhost
     res.setHeader('Set-Cookie',
         `nimbus_session=${sessionId}; Path=/; Max-Age=${7 * 24 * 60 * 60}`
     );
@@ -94,7 +92,6 @@ function clearSessionCookie(res) {
     res.setHeader('Set-Cookie', 'nimbus_session=; Path=/; Max-Age=0');
 }
 
-// ── Middleware ────────────────────────────────────────────────
 app.use(express.json());
 
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -114,7 +111,6 @@ function requireAuth(req, res, next) {
     next();
 }
 
-// ── DB Helpers ────────────────────────────────────────────────
 function readDB() {
     try {
         if (!fs.existsSync(DB_PATH)) return {};
@@ -128,7 +124,6 @@ function writeDB(data) {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-// ── OAuth2 ────────────────────────────────────────────────────
 app.get('/auth/login', (req, res) => {
     const params = new URLSearchParams({
         client_id:     CLIENT_ID,
@@ -199,7 +194,6 @@ app.get('/auth/me', (req, res) => {
     res.json({ id: session.discordId, username: session.username, displayName: session.displayName, avatarUrl, developer: DEVELOPER_IDS.includes(session.discordId) });
 });
 
-// ── API ───────────────────────────────────────────────────────
 app.get('/api/me', requireAuth, (req, res) => {
     res.json(readDB()[req.session.discordId] || {});
 });
@@ -239,22 +233,17 @@ app.patch('/api/me/notifications/:notifId', requireAuth, (req, res) => {
     const db = readDB(); const id = req.session.discordId;
     const notif = db[id]?.notifications?.find(n => n.id === req.params.notifId);
     if (!notif) return res.status(404).json({ error: 'Not found' });
-
     const body = req.body || {};
-
     if (Object.keys(body).length === 0) {
         notif.enabled = !notif.enabled;
     } else {
-        const editable = [
-            'enabled', 'channel_id', 'hour', 'minute', 'event_based',
+        const editable = ['enabled', 'channel_id', 'hour', 'minute', 'event_based',
             'offset_minutes', 'watch_changes', 'watch_severe', 'watch_moon',
-            'destination', 'type'
-        ];
+            'destination', 'type'];
         for (const key of editable) {
             if (key in body) notif[key] = body[key];
         }
     }
-
     writeDB(db); res.json(notif);
 });
 
@@ -278,18 +267,10 @@ app.delete('/api/me/favorites/:idx', requireAuth, (req, res) => {
     writeDB(db); res.json({ ok: true });
 });
 
-// Channel list with 5min server-side cache
-const channelCache = new Map();
-const CHANNEL_CACHE_TTL = 5 * 60 * 1000;
-
 app.get('/api/channels', requireAuth, async (req, res) => {
     const BOT_TOKEN = process.env.DISCORD_TOKEN;
     if (!BOT_TOKEN) return res.status(500).json({ error: 'Bot token not configured' });
-
     const userId = req.session.discordId;
-    const cached = channelCache.get(userId);
-    if (cached && Date.now() - cached.ts < CHANNEL_CACHE_TTL) return res.json(cached.data);
-
     try {
         const guildsRes = await fetch('https://discord.com/api/v10/users/@me/guilds', {
             headers: { Authorization: `Bot ${BOT_TOKEN}` },
@@ -297,50 +278,24 @@ app.get('/api/channels', requireAuth, async (req, res) => {
         if (!guildsRes.ok) return res.status(502).json({ error: 'Failed to fetch guilds' });
         const allGuilds = await guildsRes.json();
         const results = [];
-
         for (const guild of allGuilds) {
             const memberRes = await fetch(`https://discord.com/api/v10/guilds/${guild.id}/members/${userId}`, {
                 headers: { Authorization: `Bot ${BOT_TOKEN}` },
             });
             if (!memberRes.ok) continue;
-
             const channelsRes = await fetch(`https://discord.com/api/v10/guilds/${guild.id}/channels`, {
                 headers: { Authorization: `Bot ${BOT_TOKEN}` },
             });
             if (!channelsRes.ok) continue;
             const channels = await channelsRes.json();
-            const textChannels = channels
-                .filter(c => c.type === 0 || c.type === 5)
-                .sort((a, b) => (a.position || 0) - (b.position || 0))
-                .map(c => ({ id: c.id, name: c.name }));
-
-            if (textChannels.length > 0)
-                results.push({ id: guild.id, name: guild.name, icon: guild.icon, channels: textChannels });
+            const textChannels = channels.filter(c => c.type === 0).map(c => ({ id: c.id, name: c.name, guild: guild.name, guildId: guild.id }));
+            results.push(...textChannels);
         }
-
-        channelCache.set(userId, { data: results, ts: Date.now() });
         res.json(results);
     } catch (err) {
-        console.error('[channels]', err);
+        console.error('[Channels]', err);
         res.status(500).json({ error: 'Internal error' });
     }
 });
 
-app.get('/api/channel/:id', requireAuth, async (req, res) => {
-    const BOT_TOKEN = process.env.DISCORD_TOKEN;
-    if (!BOT_TOKEN) return res.status(500).json({ error: 'No bot token' });
-    try {
-        const r = await fetch(`https://discord.com/api/v10/channels/${req.params.id}`, {
-            headers: { Authorization: `Bot ${BOT_TOKEN}` },
-        });
-        if (!r.ok) return res.status(404).json({ name: req.params.id });
-        const ch = await r.json();
-        res.json({ name: ch.name, guild_id: ch.guild_id });
-    } catch {
-        res.status(500).json({ name: req.params.id });
-    }
-});
-
-app.get('/api/ping', (req, res) => res.json({ ok: true }));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.listen(PORT, () => console.log(`⛅ Nimbus Web Panel → http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`⛅ Nimbus Web running on http://localhost:${PORT}`));

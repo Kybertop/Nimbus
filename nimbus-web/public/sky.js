@@ -335,7 +335,8 @@ const Sky = (() => {
             const c2 = document.createElement('canvas');
             c2.width = cw; c2.height = ch;
             const ctx2 = c2.getContext('2d');
-            ctx2.filter = 'blur(8px)';
+            const isMobile = window.innerWidth < 768;
+            ctx2.filter = isMobile ? 'blur(14px)' : 'blur(8px)';
             ctx2.drawImage(c, 0, 0);
             ctx2.filter = 'none';
             ctx2.globalCompositeOperation = 'destination-out';

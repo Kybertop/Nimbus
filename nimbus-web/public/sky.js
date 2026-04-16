@@ -332,13 +332,8 @@ const Sky = (() => {
                 }
             }
 
-            const c2 = document.createElement('canvas');
-            c2.width = cw; c2.height = ch;
-            const ctx2 = c2.getContext('2d');
-            const isMobile = window.innerWidth < 768;
-            ctx2.filter = isMobile ? 'blur(14px)' : 'blur(8px)';
-            ctx2.drawImage(c, 0, 0);
-            ctx2.filter = 'none';
+            const c2 = c;
+            const ctx2 = ctx;
             ctx2.globalCompositeOperation = 'destination-out';
             const fade = 100;
             let g = ctx2.createLinearGradient(0, 0, fade, 0);
@@ -369,7 +364,8 @@ const Sky = (() => {
                 const tex = generateCloudStrip(s.w, s.h, cCol);
                 const el = document.createElement('div');
                 el.className = 'cloud-layer';
-                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none`;
+                const blurPx = window.innerWidth < 768 ? 12 : 8;
+                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none;filter:blur(${blurPx}px);-webkit-filter:blur(${blurPx}px)`;
                 container.appendChild(el);
             });
         }

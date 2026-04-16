@@ -283,6 +283,67 @@ const Sky = (() => {
             }
         }
 
+        function boxBlur(ctx, w, h, radius) {
+            const img = ctx.getImageData(0, 0, w, h);
+            const src = img.data;
+            const tmp = new Uint8ClampedArray(src.length);
+            const r = radius;
+
+            // Horizontal pass
+            for (let y = 0; y < h; y++) {
+                let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+                for (let k = -r; k <= r; k++) {
+                    const x = Math.max(0, Math.min(w - 1, k));
+                    const i = (y * w + x) * 4;
+                    rSum += src[i]; gSum += src[i+1]; bSum += src[i+2]; aSum += src[i+3];
+                }
+                const div = r * 2 + 1;
+                for (let x = 0; x < w; x++) {
+                    const i = (y * w + x) * 4;
+                    tmp[i] = rSum / div;
+                    tmp[i+1] = gSum / div;
+                    tmp[i+2] = bSum / div;
+                    tmp[i+3] = aSum / div;
+                    const addX = Math.min(w - 1, x + r + 1);
+                    const subX = Math.max(0, x - r);
+                    const addI = (y * w + addX) * 4;
+                    const subI = (y * w + subX) * 4;
+                    rSum += src[addI] - src[subI];
+                    gSum += src[addI+1] - src[subI+1];
+                    bSum += src[addI+2] - src[subI+2];
+                    aSum += src[addI+3] - src[subI+3];
+                }
+            }
+
+            // Vertical pass
+            for (let x = 0; x < w; x++) {
+                let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
+                for (let k = -r; k <= r; k++) {
+                    const y = Math.max(0, Math.min(h - 1, k));
+                    const i = (y * w + x) * 4;
+                    rSum += tmp[i]; gSum += tmp[i+1]; bSum += tmp[i+2]; aSum += tmp[i+3];
+                }
+                const div = r * 2 + 1;
+                for (let y = 0; y < h; y++) {
+                    const i = (y * w + x) * 4;
+                    src[i] = rSum / div;
+                    src[i+1] = gSum / div;
+                    src[i+2] = bSum / div;
+                    src[i+3] = aSum / div;
+                    const addY = Math.min(h - 1, y + r + 1);
+                    const subY = Math.max(0, y - r);
+                    const addI = (addY * w + x) * 4;
+                    const subI = (subY * w + x) * 4;
+                    rSum += tmp[addI] - tmp[subI];
+                    gSum += tmp[addI+1] - tmp[subI+1];
+                    bSum += tmp[addI+2] - tmp[subI+2];
+                    aSum += tmp[addI+3] - tmp[subI+3];
+                }
+            }
+
+            ctx.putImageData(img, 0, 0);
+        }
+
         function generateCloudStrip(w, h, col) {
             const pad = 40;
             const cw = w, ch = h + pad * 2;
@@ -332,6 +393,10 @@ const Sky = (() => {
                 }
             }
 
+            const isMobile = window.innerWidth < 768;
+            boxBlur(ctx, cw, ch, isMobile ? 12 : 8);
+            boxBlur(ctx, cw, ch, isMobile ? 12 : 8);
+
             const c2 = c;
             const ctx2 = ctx;
             ctx2.globalCompositeOperation = 'destination-out';
@@ -364,8 +429,7 @@ const Sky = (() => {
                 const tex = generateCloudStrip(s.w, s.h, cCol);
                 const el = document.createElement('div');
                 el.className = 'cloud-layer';
-                const blurPx = window.innerWidth < 768 ? 12 : 8;
-                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none;filter:blur(${blurPx}px);-webkit-filter:blur(${blurPx}px)`;
+                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none`;
                 container.appendChild(el);
             });
         }

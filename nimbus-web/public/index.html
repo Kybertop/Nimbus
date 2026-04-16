@@ -25,6 +25,7 @@
             </div>
             <div class="header-right">
                 <span id="headerTime" class="header-time"></span>
+                <button id="radarBtn" class="icon-btn desktop-only" title="Radar"><i class="fa-solid fa-satellite-dish" style="font-size:14px"></i></button>
                 <button id="settingsBtn" class="icon-btn" title="Nastavenia"><i class="fa-solid fa-gear" style="font-size:14px"></i></button>
             </div>
         </header>
@@ -70,6 +71,8 @@
     </div>
 </div>
 
+<button id="radarFab" class="radar-fab" title="Radar"><i class="fa-solid fa-satellite-dish"></i></button>
+
 <div id="settingsOverlay" class="overlay hidden">
     <div class="overlay-bg" id="settingsClose"></div>
     <div class="settings-sheet" id="settingsSheet"></div>
@@ -78,7 +81,25 @@
 <div id="radarOverlay" class="overlay hidden">
     <div class="radar-container">
         <iframe id="radarFrame" class="radar-frame" allowfullscreen></iframe>
-        <button id="radarCloseBtn" class="radar-close">✕ Zavrieť</button>
+        <div class="radar-city-label" id="radarCityLabel"></div>
+        <button id="radarCloseBtn" class="radar-close"><i class="fa-solid fa-xmark"></i> Zavrieť</button>
+        <div class="radar-legend">
+            <div class="radar-legend-title" id="radarLegendTitle">Zrážky mm/h</div>
+            <div class="radar-legend-bar" id="radarLegendBar"></div>
+            <div class="radar-legend-labels" id="radarLegendLabels"></div>
+        </div>
+        <div class="radar-bottom-bar">
+            <div class="radar-layers">
+                <button class="radar-layer-btn active" data-layer="rain"><i class="fa-solid fa-cloud-rain" style="color:#38bdf8"></i> Zrážky</button>
+                <button class="radar-layer-btn" data-layer="temp"><i class="fa-solid fa-temperature-half" style="color:#f87171"></i> Teplota</button>
+                <button class="radar-layer-btn" data-layer="wind"><i class="fa-solid fa-wind" style="color:#a5b4fc"></i> Vietor</button>
+                <button class="radar-layer-btn" data-layer="clouds"><i class="fa-solid fa-cloud" style="color:#94a3b8"></i> Oblaky</button>
+                <button class="radar-layer-btn" data-layer="radar"><i class="fa-solid fa-satellite-dish" style="color:#60a5fa"></i> Radar</button>
+                <button class="radar-layer-btn" data-layer="snowcover"><i class="fa-solid fa-snowflake" style="color:#93c5fd"></i> Sneh</button>
+                <button class="radar-layer-btn" data-layer="pressure"><i class="fa-solid fa-gauge" style="color:#a78bfa"></i> Tlak</button>
+                <button class="radar-layer-btn" data-layer="thunder"><i class="fa-solid fa-cloud-bolt" style="color:#fbbf24"></i> Búrky</button>
+            </div>
+        </div>
     </div>
 </div>
 

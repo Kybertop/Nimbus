@@ -402,6 +402,8 @@ function updateFavicon(code, hour) {
 
 async function loadWeather(lat, lon, tz, cityName) {
     state.lat=lat;state.lon=lon;state.tz=tz;state.city=cityName;
+    const ci = $('cityInput');
+    if (ci) ci.value = cityName;
     $('weatherLoading').classList.remove('hidden');
     $('heroData').classList.add('hidden');
     $('mainPanel').classList.add('hidden');
@@ -478,8 +480,8 @@ function setupSettings() {
 
     const DISCORD_SVG = '<svg width="16" height="12" viewBox="0 0 71 55" fill="none"><path d="M60.1 4.9A58.6 58.6 0 0 0 45.6.7a40.3 40.3 0 0 0-1.8 3.6 54.2 54.2 0 0 0-16.2 0A38.6 38.6 0 0 0 25.8.7 58.5 58.5 0 0 0 11.2 4.9C1.6 19.2-.9 33.1.3 46.8a59 59 0 0 0 17.9 9 43.3 43.3 0 0 0 3.8-6.1 38.3 38.3 0 0 1-6-2.8c.5-.4 1-.7 1.5-1.1a42 42 0 0 0 35.8 0l1.5 1.1a38.4 38.4 0 0 1-6 2.9 43 43 0 0 0 3.7 6A58.8 58.8 0 0 0 70.7 46.8C72.1 31 68.2 17.2 60.1 4.9Z" fill="white"/></svg>';
 
-    btn.addEventListener('click', () => { renderSettings(); overlay.classList.remove('hidden'); });
-    close.addEventListener('click', () => overlay.classList.add('hidden'));
+    btn.addEventListener('click', () => { renderSettings(); overlay.classList.remove('hidden'); Sky.pause && Sky.pause(); });
+    close.addEventListener('click', () => { overlay.classList.add('hidden'); Sky.resume && Sky.resume(); });
 
     async function renderSettings() {
         const tempUnit = localStorage.getItem('nimbus_temp')||'°C';
@@ -516,8 +518,8 @@ function setupSettings() {
             html += '</div>';
 
             html += '<div class="sheet-section"><div class="sheet-section-title">Mesto</div>';
-            html += '<div style="display:flex;gap:8px"><input class="settings-input" placeholder="Hľadaj mesto…" id="settCityInput"><button class="btn-accent" id="settCitySearch">Hľadaj</button></div>';
-            html += `<div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.73)">📍 Aktuálne: <span style="color:#fff;font-weight:500">${ud.city||state.city||'—'}</span></div>`;
+            html += '<div style="position:relative"><input class="settings-input" placeholder="Hľadaj mesto…" id="settCityInput" autocomplete="off" style="width:100%;box-sizing:border-box"><div id="settCityResults" class="sett-city-results hidden"></div></div>';
+            html += `<div style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.73)"><i class="fa-solid fa-location-dot" style="color:#34d399"></i> Aktuálne: <span style="color:#fff;font-weight:500">${ud.city||state.city||'—'}</span></div>`;
             html += '</div>';
 
             const favs = ud.favorites||[];
@@ -543,7 +545,7 @@ function setupSettings() {
 
         sheet.innerHTML = html;
 
-        sheet.querySelector('#sheetCloseBtn')?.addEventListener('click', () => overlay.classList.add('hidden'));
+        sheet.querySelector('#sheetCloseBtn')?.addEventListener('click', () => { overlay.classList.add('hidden'); Sky.resume && Sky.resume(); });
 
         sheet.querySelectorAll('.toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -572,7 +574,7 @@ function setupSettings() {
         sheet.querySelectorAll('.fav-use').forEach(btn => {
             btn.addEventListener('click', () => {
                 const f = state.userData.favorites[parseInt(btn.dataset.idx)];
-                if(f) { loadWeather(f.latitude,f.longitude,f.timezone||'auto',f.name); overlay.classList.add('hidden'); }
+                if(f) { loadWeather(f.latitude,f.longitude,f.timezone||'auto',f.name); overlay.classList.add('hidden'); Sky.resume && Sky.resume(); }
             });
         });
         sheet.querySelectorAll('.fav-del').forEach(btn => {
@@ -595,6 +597,197 @@ function setupSettings() {
                 await fetch(`/api/me/notifications/${btn.dataset.id}`,{method:'DELETE'});
                 state.userData.notifications = state.userData.notifications.filter(x=>x.id!==btn.dataset.id);
                 renderSettings();
+            });
+        });
+
+        const settCityInput = sheet.querySelector('#settCityInput');
+        const settCityResults = sheet.querySelector('#settCityResults');
+        if (settCityInput && settCityResults) {
+            let settTimer;
+            settCityInput.addEventListener('input', () => {
+                clearTimeout(settTimer);
+                const q = settCityInput.value.trim();
+                if (q.length < 2) { settCityResults.classList.add('hidden'); return; }
+                settTimer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=sk`);
+                        const data = await res.json();
+                        if (!data.results || !data.results.length) {
+                            settCityResults.innerHTML = '<div class="fav-search-empty">Nenájdené</div>';
+                            settCityResults.classList.remove('hidden');
+                            return;
+                        }
+                        settCityResults.innerHTML = data.results.map(r => {
+                            const loc = [r.admin1, r.country].filter(Boolean).join(', ');
+                            return `<div class="sett-city-item" data-name="${r.name}${r.country?', '+r.country:''}" data-lat="${r.latitude}" data-lon="${r.longitude}" data-tz="${r.timezone||'auto'}"><div class="fav-search-name">${r.name}</div><div class="fav-search-loc">${loc}</div></div>`;
+                        }).join('');
+                        settCityResults.classList.remove('hidden');
+                        settCityResults.querySelectorAll('.sett-city-item').forEach(item => {
+                            item.addEventListener('click', () => {
+                                const name = item.dataset.name;
+                                const lat = parseFloat(item.dataset.lat);
+                                const lon = parseFloat(item.dataset.lon);
+                                const tz = item.dataset.tz;
+                                loadWeather(lat, lon, tz, name);
+                                overlay.classList.add('hidden');
+                                settCityInput.value = '';
+                                settCityResults.classList.add('hidden');
+                            });
+                        });
+                    } catch(e) {
+                        settCityResults.innerHTML = '<div class="fav-search-empty">Chyba</div>';
+                        settCityResults.classList.remove('hidden');
+                    }
+                }, 300);
+            });
+        }
+
+        sheet.querySelector('#addFavBtn')?.addEventListener('click', () => {
+            const modal = document.createElement('div');
+            modal.className = 'overlay';
+            modal.innerHTML = `
+                <div class="overlay-bg"></div>
+                <div class="notif-modal">
+                    <div class="notif-modal-header">
+                        <span class="notif-modal-title"><i class="fa-solid fa-star" style="color:#fbbf24"></i> Pridať obľúbené mesto</span>
+                        <button class="sheet-close" id="favCancel"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="notif-modal-body">
+                        <div class="notif-type-label">Vyhľadať mesto</div>
+                        <input type="text" id="favSearchInput" class="notif-time-input" placeholder="Hľadaj mesto..." autocomplete="off">
+                        <div id="favSearchResults" class="fav-search-results"></div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const close = () => modal.remove();
+            modal.querySelector('.overlay-bg').addEventListener('click', close);
+            modal.querySelector('#favCancel').addEventListener('click', close);
+
+            const input = modal.querySelector('#favSearchInput');
+            const results = modal.querySelector('#favSearchResults');
+            let timer;
+
+            input.focus();
+            input.addEventListener('input', () => {
+                clearTimeout(timer);
+                const q = input.value.trim();
+                if (q.length < 2) { results.innerHTML = ''; return; }
+                timer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=sk`);
+                        const data = await res.json();
+                        if (!data.results || !data.results.length) {
+                            results.innerHTML = '<div class="fav-search-empty">Nenájdené</div>';
+                            return;
+                        }
+                        results.innerHTML = data.results.map(r => {
+                            const loc = [r.admin1, r.country].filter(Boolean).join(', ');
+                            return `<div class="fav-search-item" data-name="${r.name}${r.country?', '+r.country:''}" data-lat="${r.latitude}" data-lon="${r.longitude}" data-tz="${r.timezone||'auto'}"><div class="fav-search-name">${r.name}</div><div class="fav-search-loc">${loc}</div></div>`;
+                        }).join('');
+
+                        results.querySelectorAll('.fav-search-item').forEach(item => {
+                            item.addEventListener('click', async () => {
+                                const name = item.dataset.name;
+                                const lat = parseFloat(item.dataset.lat);
+                                const lon = parseFloat(item.dataset.lon);
+                                const tz = item.dataset.tz;
+                                const res = await fetch('/api/me/favorites', {
+                                    method:'POST',
+                                    headers:{'Content-Type':'application/json'},
+                                    body: JSON.stringify({name, latitude:lat, longitude:lon, timezone:tz})
+                                });
+                                if (res.ok) {
+                                    state.userData.favorites = state.userData.favorites || [];
+                                    state.userData.favorites.push({name, latitude:lat, longitude:lon, timezone:tz});
+                                    close();
+                                    renderSettings();
+                                }
+                            });
+                        });
+                    } catch(e) {
+                        results.innerHTML = '<div class="fav-search-empty">Chyba hľadania</div>';
+                    }
+                }, 300);
+            });
+        });
+
+        sheet.querySelector('#addNotifBtn')?.addEventListener('click', () => {
+            const types = [
+                {v:'daily',l:'Denný prehľad',i:'fa-sun',c:'#fbbf24',timed:true},
+                {v:'severe',l:'Výstrahy',i:'fa-triangle-exclamation',c:'#f87171',timed:false},
+                {v:'storm',l:'Búrkový alert',i:'fa-cloud-bolt',c:'#fbbf24',timed:false},
+                {v:'sunrise',l:'Východ slnka',i:'fa-sun',c:'#fb923c',timed:false},
+                {v:'sunset',l:'Západ slnka',i:'fa-sun',c:'#ef4444',timed:false},
+                {v:'weather_change',l:'Zmeny počasia',i:'fa-cloud',c:'#94a3b8',timed:false},
+                {v:'rain_now',l:'Dážď teraz',i:'fa-cloud-rain',c:'#38bdf8',timed:false},
+                {v:'extreme_temp',l:'Extrémne teploty',i:'fa-temperature-high',c:'#f87171',timed:false},
+                {v:'moon',l:'Fáza mesiaca',i:'fa-moon',c:'#e8e2d0',timed:false},
+            ];
+            const modal = document.createElement('div');
+            modal.className = 'overlay';
+            modal.innerHTML = `
+                <div class="overlay-bg"></div>
+                <div class="notif-modal">
+                    <div class="notif-modal-header">
+                        <span class="notif-modal-title"><i class="fa-solid fa-bell" style="color:#60a5fa"></i> Nová notifikácia</span>
+                        <button class="sheet-close" id="notifCancel"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="notif-modal-body">
+                        <div class="notif-type-label">Typ notifikácie</div>
+                        <div class="notif-type-grid">
+                            ${types.map((t,i)=>`<button class="notif-type-btn${i===0?' active':''}" data-type="${t.v}" data-timed="${t.timed}"><i class="fa-solid ${t.i}" style="color:${t.c};font-size:18px"></i><span>${t.l}</span></button>`).join('')}
+                        </div>
+                        <div id="notifTimeWrap" class="notif-time-wrap">
+                            <div class="notif-type-label">Čas doručenia</div>
+                            <input type="time" id="notifTime" value="08:00" class="notif-time-input">
+                        </div>
+                        <button class="notif-save-btn" id="notifSave"><i class="fa-solid fa-check"></i> Vytvoriť notifikáciu</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const close = () => modal.remove();
+            modal.querySelector('.overlay-bg').addEventListener('click', close);
+            modal.querySelector('#notifCancel').addEventListener('click', close);
+
+            const timeWrap = modal.querySelector('#notifTimeWrap');
+            let selectedType = 'daily';
+            let selectedTimed = true;
+
+            modal.querySelectorAll('.notif-type-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modal.querySelectorAll('.notif-type-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedType = btn.dataset.type;
+                    selectedTimed = btn.dataset.timed === 'true';
+                    timeWrap.style.display = selectedTimed ? 'block' : 'none';
+                });
+            });
+
+            modal.querySelector('#notifSave').addEventListener('click', async () => {
+                const time = modal.querySelector('#notifTime').value;
+                const body = {type:selectedType, enabled:true};
+                if (selectedTimed) {
+                    const [h,m] = time.split(':');
+                    body.hour = parseInt(h); body.minute = parseInt(m);
+                }
+                const res = await fetch('/api/me/notifications',{
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    const created = await res.json();
+                    state.userData.notifications = state.userData.notifications || [];
+                    state.userData.notifications.push(created);
+                    close();
+                    renderSettings();
+                } else {
+                    alert('Chyba pri vytváraní notifikácie.');
+                }
             });
         });
 
@@ -621,7 +814,21 @@ function setupSettings() {
 }
 
 function setupDevPanel() {
-    const DEMOS = [{c:0,l:'<i class="fa-solid fa-sun"></i> Jasno'},{c:2,l:'<i class="fa-solid fa-cloud-sun"></i> Polojasno'},{c:3,l:'<i class="fa-solid fa-cloud"></i> Zamračené'},{c:61,l:'<i class="fa-solid fa-cloud-rain"></i> Dážď'},{c:95,l:'<i class="fa-solid fa-cloud-bolt"></i> Búrka'},{c:75,l:'<i class="fa-solid fa-snowflake"></i> Sneh'},{c:45,l:'<i class="fa-solid fa-smog"></i> Hmla'}];
+    const DEMOS = [
+        {c:0,l:'<i class="fa-solid fa-sun" style="color:#fbbf24"></i> Jasno'},
+        {c:1,l:'<i class="fa-solid fa-cloud-sun" style="color:#fbbf24"></i> Prev. jasno'},
+        {c:2,l:'<i class="fa-solid fa-cloud-sun" style="color:#94a3b8"></i> Polojasno'},
+        {c:3,l:'<i class="fa-solid fa-cloud" style="color:#a5b4c8"></i> Zamračené'},
+        {c:45,l:'<i class="fa-solid fa-smog" style="color:#a5b4c8"></i> Hmla'},
+        {c:51,l:'<i class="fa-solid fa-cloud-rain" style="color:#60a5fa"></i> Mrholenie'},
+        {c:61,l:'<i class="fa-solid fa-cloud-rain" style="color:#38bdf8"></i> Slabý dážď'},
+        {c:63,l:'<i class="fa-solid fa-cloud-showers-heavy" style="color:#3b82f6"></i> Dážď'},
+        {c:65,l:'<i class="fa-solid fa-cloud-showers-heavy" style="color:#2563eb"></i> Silný dážď'},
+        {c:71,l:'<i class="fa-regular fa-snowflake" style="color:#7dd3fc"></i> Sneženie'},
+        {c:75,l:'<i class="fa-solid fa-snowflake" style="color:#93c5fd"></i> Silný sneh'},
+        {c:95,l:'<i class="fa-solid fa-cloud-bolt" style="color:#fbbf24"></i> Búrka'},
+        {c:99,l:'<i class="fa-solid fa-cloud-bolt" style="color:#f87171"></i> Silná búrka'},
+    ];
     const panel = $('devPanel');
     let devCode = null, devHour = null;
 

@@ -2,10 +2,18 @@ const Sky = (() => {
     const GRADS = {
         storm:'linear-gradient(180deg,#1a1a2e 0%,#2a2a40 40%,#3a3a50 100%)',
         snow:'linear-gradient(180deg,#607080 0%,#7e8e9c 40%,#98a8b4 70%,#b0bcc6 100%)',
+        rain_light:'linear-gradient(180deg,#4a6078 0%,#6488a0 35%,#7ea0b4 65%,#94b2c4 100%)',
         rain:'linear-gradient(180deg,#405060 0%,#5a7080 35%,#708898 65%,#889ca8 100%)',
+        rain_heavy:'linear-gradient(180deg,#2a3846 0%,#405868 35%,#566e80 65%,#6c8292 100%)',
+        fog:'linear-gradient(180deg,#8090a0 0%,#96a4b2 35%,#aab6c0 65%,#bec8d0 100%)',
+        overcast:'linear-gradient(180deg,#4e6480 0%,#6a7e98 35%,#8294a8 65%,#95a5b6 100%)',
         night_storm:'linear-gradient(180deg,#0a0a18 0%,#141428 35%,#1e1e35 65%,#252540 100%)',
         night_rain:'linear-gradient(180deg,#0c1020 0%,#182038 35%,#223050 60%,#2a3858 100%)',
+        night_rain_heavy:'linear-gradient(180deg,#06081a 0%,#10182a 35%,#1a2440 60%,#222c4c 100%)',
+        night_rain_light:'linear-gradient(180deg,#121a30 0%,#1e2848 35%,#2c3860 60%,#364468 100%)',
         night_snow:'linear-gradient(180deg,#151828 0%,#222840 35%,#303852 60%,#3a4260 100%)',
+        night_fog:'linear-gradient(180deg,#2a3448 0%,#384258 35%,#485268 60%,#586278 100%)',
+        night_overcast:'linear-gradient(180deg,#0e1428 0%,#1a2238 60%,#263050 100%)',
         dawn:'linear-gradient(180deg,#2a2050 0%,#5a3868 22%,#a85870 48%,#d08868 70%,#e8b478 90%)',
         morning:'linear-gradient(180deg,#1a60a0 0%,#2e80c0 30%,#4a9cd4 60%,#6ab4e0 85%)',
         day:'linear-gradient(180deg,#1558a0 0%,#1e72b8 22%,#2e8cd0 48%,#48a4dc 70%,#62b8e6 90%)',
@@ -106,11 +114,14 @@ const Sky = (() => {
         const ph = currentPhase;
         const showStars = ph==='night'||ph==='dusk';
         const code = currentCode;
+        const isDrizzle = [51,53].includes(code);
+        const isRainLight = [61,80].includes(code);
+        const isRainHeavy = [65,82].includes(code);
         const isRain = [51,53,55,61,63,65,66,67,80,81,82].includes(code);
         const isSnow = [71,73,75,77,85,86].includes(code);
+        const isSnowHeavy = [75,86].includes(code);
         const isStorm = [95,96,99].includes(code);
         const isFog = [45,48].includes(code);
-
         if (showStars) {
             const t = ts/1000;
             stars.forEach(s => {
@@ -124,15 +135,22 @@ const Sky = (() => {
         }
 
         if (isRain||isStorm) {
-            const wind = isStorm?0.15:0.05;
-            ctx.strokeStyle = isStorm?'rgba(180,200,220,0.5)':'rgba(180,200,220,0.35)';
+            const wind = isStorm?0.08:isRainHeavy?0.06:isRainLight?0.04:isDrizzle?0.02:0.05;
+            let alpha, lenMult, widthMult, speedMult;
+            if (isStorm) { alpha = 0.8; lenMult = 24; widthMult = 1.5; speedMult = 2.4; }
+            else if (isRainHeavy) { alpha = 0.75; lenMult = 20; widthMult = 1.2; speedMult = 2.0; }
+            else if (isRainLight) { alpha = 0.6; lenMult = 12; widthMult = 0.85; speedMult = 1.4; }
+            else if (isDrizzle) { alpha = 0.65; lenMult = 7; widthMult = 0.9; speedMult = 1.3; }
+            else { alpha = 0.68; lenMult = 16; widthMult = 1.0; speedMult = 1.7; }
+            ctx.strokeStyle = `rgba(200,220,240,${alpha})`;
+            ctx.lineCap = 'round';
             particles.forEach(p => {
-                p.y += p.speed*dt*1.8;
+                p.y += p.speed*dt*speedMult;
                 p.x += wind*dt;
                 if (p.y>1) {p.y=0;p.x=Math.random();}
                 if (p.x>1) p.x=0;
-                const len = isStorm?p.size*18:p.size*12;
-                ctx.lineWidth = p.size*0.6;
+                const len = p.size*lenMult;
+                ctx.lineWidth = p.size*widthMult;
                 ctx.beginPath();
                 ctx.moveTo(p.x*W, p.y*H);
                 ctx.lineTo(p.x*W+wind*len*3, p.y*H+len);
@@ -142,8 +160,9 @@ const Sky = (() => {
 
         if (isSnow) {
             const t = ts/1000;
+            const fallSpeed = isSnowHeavy ? 0.9 : 0.5;
             particles.forEach(p => {
-                p.y += p.speed*dt*0.5;
+                p.y += p.speed*dt*fallSpeed;
                 p.wobble += dt*1.5;
                 p.x += Math.sin(p.wobble)*0.0008+p.drift*dt*0.1;
                 if (p.y>1) {p.y=-0.02;p.x=Math.random();}
@@ -175,10 +194,10 @@ const Sky = (() => {
         }
 
         if (isFog) {
-            const grd = ctx.createLinearGradient(0, H*0.3, 0, H);
-            grd.addColorStop(0, 'rgba(180,190,200,0)');
-            grd.addColorStop(0.5, 'rgba(180,190,200,0.12)');
-            grd.addColorStop(1, 'rgba(180,190,200,0.2)');
+            const grd = ctx.createLinearGradient(0, 0, 0, H);
+            grd.addColorStop(0, 'rgba(200,210,220,0.15)');
+            grd.addColorStop(0.4, 'rgba(200,210,220,0.3)');
+            grd.addColorStop(1, 'rgba(200,210,220,0.45)');
             ctx.fillStyle = grd;
             ctx.fillRect(0, 0, W, H);
         }
@@ -191,18 +210,27 @@ const Sky = (() => {
         currentHour = hour;
         currentPhase = phase(hour);
 
+        const isDrizzle = [51,53].includes(code);
+        const isRainLight = [61,80].includes(code);
+        const isRainHeavy = [65,82].includes(code);
         const isRain = [51,53,55,61,63,65,66,67,80,81,82].includes(code);
         const isSnow = [71,73,75,77,85,86].includes(code);
+        const isSnowHeavy = [75,86].includes(code);
         const isStorm = [95,96,99].includes(code);
-        const isOvc = [3,45,48].includes(code);
-        const severity = isStorm?3:(isRain||isSnow)?2:isOvc?1:0;
+        const isFog = [45,48].includes(code);
+        const isOvc = code === 3;
+        const severity = isStorm?3:(isRain||isSnow)?2:(isOvc||isFog)?1:0;
         const ph = currentPhase;
 
         let gradKey;
         const isNight = ph==='night'||ph==='dusk';
         if (isStorm) gradKey = isNight?'night_storm':'storm';
         else if (isSnow) gradKey = isNight?'night_snow':'snow';
+        else if (isRainHeavy) gradKey = isNight?'night_rain_heavy':'rain_heavy';
+        else if (isRainLight||isDrizzle) gradKey = isNight?'night_rain_light':'rain_light';
         else if (isRain) gradKey = isNight?'night_rain':'rain';
+        else if (isFog) gradKey = isNight?'night_fog':'fog';
+        else if (isOvc) gradKey = isNight?'night_overcast':'overcast';
         else gradKey = ph;
 
         const gradEl = document.getElementById('skyGrad');
@@ -211,19 +239,20 @@ const Sky = (() => {
         const horizEl = document.getElementById('skyHorizon');
         if (horizEl) horizEl.style.background = HORIZONS[ph]||HORIZONS.day;
 
-        const pCount = isStorm?60:isRain?35:isSnow?25:0;
+        const pCount = isStorm?90:isRainHeavy?65:isRainLight?40:isDrizzle?30:isRain?50:isSnowHeavy?55:isSnow?30:isFog?40:0;
         if (pCount !== particles.length) {
             particles = Array.from({length:pCount}, () => ({
                 x:Math.random(), y:Math.random(),
-                speed: isSnow?0.2+Math.random()*0.4:isStorm?1.2+Math.random()*0.8:0.6+Math.random()*0.6,
-                size: isSnow?1+Math.random()*2.5:isStorm?1.5+Math.random():0.8+Math.random()*0.8,
-                drift: isSnow?(Math.random()-0.5)*0.3:0,
+                speed: isSnow?(isSnowHeavy?0.5+Math.random()*0.5:0.2+Math.random()*0.4):isStorm?1.4+Math.random()*0.8:isRainHeavy?1.1+Math.random()*0.6:isRainLight?0.5+Math.random()*0.4:isDrizzle?0.4+Math.random()*0.3:0.7+Math.random()*0.6,
+                size: isSnow?(isSnowHeavy?1.5+Math.random()*2.5:1+Math.random()*2.5):isStorm?2.2+Math.random()*1.3:isRainHeavy?1.8+Math.random()*1.0:isRainLight?1.1+Math.random()*0.6:isDrizzle?1.1+Math.random()*0.5:1.3+Math.random()*0.9,
+                drift: isSnow?(Math.random()-0.5)*(isSnowHeavy?0.5:0.3):isFog?(Math.random()-0.5)*0.02:0,
                 wobble: Math.random()*Math.PI*2,
             }));
         }
 
-        const showSun = (ph==='day'||ph==='morning'||ph==='evening'||ph==='dawn')&&!isStorm&&!isOvc;
-        const showMoon = (ph==='night'||ph==='dusk')&&!isOvc&&!isStorm;
+        const showSun = (ph==='day'||ph==='morning'||ph==='evening'||ph==='dawn')&&!isStorm&&!isOvc&&!isFog&&!isRain&&!isSnow;
+        const showMoon = (ph==='night'||ph==='dusk')&&!isStorm&&!isOvc&&!isFog&&!isRain&&!isSnow;
+        const celestialOpacity = code===2?0.8:code===1?0.95:1;
         const cloudCount = isStorm?5:isOvc||isRain||isSnow?4:code===2?2:code<=1?0:1;
         container.querySelectorAll('.sky-sun,.sky-moon,.cloud-layer').forEach(el => el.remove());
 
@@ -232,7 +261,7 @@ const Sky = (() => {
             if (sp) {
                 const el = document.createElement('div');
                 el.className = 'sky-sun';
-                el.style.cssText = `left:${sp.x}%;top:${sp.y}%;transform:translate(-50%,-50%)`;
+                el.style.cssText = `left:${sp.x}%;top:${sp.y}%;transform:translate(-50%,-50%);opacity:${celestialOpacity}`;
                 el.innerHTML = `
                     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:40vmin;height:40vmin;border-radius:50%;background:radial-gradient(circle,rgba(250,232,190,0.18) 0%,rgba(242,218,160,0.06) 35%,transparent 65%)"></div>
                     <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(255,238,190,0.42) 0%,rgba(252,225,160,0.22) 18%,rgba(248,212,135,0.08) 38%,rgba(242,200,115,0.02) 55%,transparent 72%)"></div>
@@ -270,7 +299,7 @@ const Sky = (() => {
                 const glowSize = 15+moon.illum/100*25;
                 const el = document.createElement('div');
                 el.className = 'sky-moon';
-                el.style.cssText = `left:${mp.x}%;top:${mp.y}%;transform:translate(-50%,-50%)`;
+                el.style.cssText = `left:${mp.x}%;top:${mp.y}%;transform:translate(-50%,-50%);opacity:${0.88*celestialOpacity}`;
                 el.innerHTML = `
                     <div style="position:relative;width:${sz+60}px;height:${sz+60}px;display:flex;align-items:center;justify-content:center">
                         <div style="position:absolute;inset:-10px;border-radius:50%;background:radial-gradient(circle,rgba(220,215,190,${glowStrength*1.2}) 0%,rgba(210,205,180,${glowStrength*0.5}) 35%,rgba(200,195,170,${glowStrength*0.15}) 55%,transparent 70%);animation:moonGlow 5s ease-in-out infinite"></div>
@@ -332,8 +361,13 @@ const Sky = (() => {
                 }
             }
 
-            const c2 = c;
-            const ctx2 = ctx;
+            const c2 = document.createElement('canvas');
+            c2.width = cw; c2.height = ch;
+            const ctx2 = c2.getContext('2d');
+            ctx2.filter = 'blur(8px)';
+            ctx2.drawImage(c, 0, 0);
+            ctx2.filter = 'none';
+
             ctx2.globalCompositeOperation = 'destination-out';
             const fade = 100;
             let g = ctx2.createLinearGradient(0, 0, fade, 0);
@@ -364,12 +398,14 @@ const Sky = (() => {
                 const tex = generateCloudStrip(s.w, s.h, cCol);
                 const el = document.createElement('div');
                 el.className = 'cloud-layer';
-                const blurPx = window.innerWidth < 768 ? 12 : 8;
-                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none;filter:blur(${blurPx}px);-webkit-filter:blur(${blurPx}px)`;
+                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none`;
                 container.appendChild(el);
             });
         }
     }
 
-    return { init, update, sunPos, moonPos, getMoonPhase };
+    function pause() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }
+    function resume() { if (!rafId) { lastTs = 0; rafId = requestAnimationFrame(render); } }
+
+    return { init, update, sunPos, moonPos, getMoonPhase, pause, resume };
 })();

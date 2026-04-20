@@ -1,10 +1,10 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min-height:100vh;overflow-x:hidden}
+body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min-height:100vh;min-height:100dvh;overflow-x:hidden;overscroll-behavior:none}
 
 .hidden{display:none!important}
 
-#skyScene{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+#skyScene{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#152040}
 .sky-gradient{position:absolute;inset:0;transition:background 3s ease}
 .sky-horizon{position:absolute;bottom:0;left:0;right:0;height:35%;pointer-events:none}
 .sky-sun{position:absolute;z-index:0;pointer-events:none}
@@ -24,7 +24,7 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 .sky-moon{position:absolute;z-index:0;pointer-events:none;opacity:0.88;filter:blur(0.5px)}
 
 #app{position:relative;z-index:1}
-.container{max-width:520px;margin:0 auto;padding:0 20px}
+.container{max-width:520px;margin:0 auto;padding:0 20px;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
 
 .header{display:flex;align-items:center;justify-content:space-between;padding:16px 0 8px}
 .header-left{display:flex;align-items:center;gap:10px}

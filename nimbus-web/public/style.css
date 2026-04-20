@@ -15,11 +15,12 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 @keyframes flareB{0%,100%{opacity:0.5;transform:translate(-50%,-50%) rotate(58deg)}50%{opacity:0.9;transform:translate(-50%,-50%) rotate(56deg)}}
 @keyframes flareC{0%,100%{opacity:0.4;transform:translate(-50%,-50%) rotate(-75deg)}50%{opacity:0.85;transform:translate(-50%,-50%) rotate(-77deg)}}
 @keyframes moonGlow{0%,100%{transform:scale(1);opacity:0.8}50%{transform:scale(1.06);opacity:1}}
-@keyframes cloudScroll0{from{background-position:0 0}to{background-position:-1300px 0}}
-@keyframes cloudScroll1{from{background-position:0 0}to{background-position:-1000px 0}}
-@keyframes cloudScroll2{from{background-position:0 0}to{background-position:-1600px 0}}
-@keyframes cloudScroll3{from{background-position:0 0}to{background-position:-850px 0}}
-.cloud-layer{pointer-events:none;z-index:1;position:relative;image-rendering:auto;-webkit-image-rendering:auto;transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+@keyframes cloudSlide0{from{transform:translate3d(0,0,0)}to{transform:translate3d(-1300px,0,0)}}
+@keyframes cloudSlide1{from{transform:translate3d(0,0,0)}to{transform:translate3d(-1000px,0,0)}}
+@keyframes cloudSlide2{from{transform:translate3d(0,0,0)}to{transform:translate3d(-1600px,0,0)}}
+@keyframes cloudSlide3{from{transform:translate3d(0,0,0)}to{transform:translate3d(-850px,0,0)}}
+.cloud-layer{pointer-events:none;z-index:1;position:relative}
+.cloud-layer-inner{backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .sky-moon{position:absolute;z-index:0;pointer-events:none;opacity:0.88;filter:blur(0.5px)}
 
 #app{position:relative;z-index:1}

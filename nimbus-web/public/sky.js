@@ -378,18 +378,7 @@ const Sky = (() => {
             const c2 = document.createElement('canvas');
             c2.width = cw; c2.height = ch;
             const ctx2 = c2.getContext('2d');
-            const bScale = 0.18;
-            const sw = Math.max(1, Math.round(cw * bScale));
-            const sh = Math.max(1, Math.round(ch * bScale));
-            const cSmall = document.createElement('canvas');
-            cSmall.width = sw; cSmall.height = sh;
-            const ctxSmall = cSmall.getContext('2d');
-            ctxSmall.imageSmoothingEnabled = true;
-            ctxSmall.imageSmoothingQuality = 'high';
-            ctxSmall.drawImage(c, 0, 0, sw, sh);
-            ctx2.imageSmoothingEnabled = true;
-            ctx2.imageSmoothingQuality = 'high';
-            ctx2.drawImage(cSmall, 0, 0, cw, ch);
+            ctx2.drawImage(c, 0, 0);
 
             ctx2.globalCompositeOperation = 'destination-out';
             const fade = 100;
@@ -419,10 +408,14 @@ const Sky = (() => {
         if (cloudVis > 0) {
             [{w:1300,h:200,dur:50,y:'0%'},{w:1000,h:180,dur:38,y:'8%'},{w:1600,h:220,dur:65,y:'3%'},{w:850,h:160,dur:30,y:'16%'}].forEach((s,i) => {
                 const tex = generateCloudStrip(s.w, s.h, cCol);
-                const el = document.createElement('div');
-                el.className = 'cloud-layer';
-                el.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudScroll${i} ${s.dur}s linear infinite;will-change:transform;opacity:${cloudVis};pointer-events:none`;
-                container.appendChild(el);
+                const outer = document.createElement('div');
+                outer.className = 'cloud-layer';
+                outer.style.cssText = `position:absolute;top:${s.y};left:0;right:0;height:${s.h+80}px;overflow:hidden;opacity:${cloudVis};pointer-events:none`;
+                const inner = document.createElement('div');
+                inner.className = 'cloud-layer-inner';
+                inner.style.cssText = `position:absolute;top:0;left:0;height:100%;width:calc(100% + ${s.w}px);background:url(${tex}) repeat-x;background-size:${s.w}px ${s.h+80}px;animation:cloudSlide${i} ${s.dur}s linear infinite;will-change:transform;transform:translateZ(0);filter:blur(8px);-webkit-filter:blur(8px)`;
+                outer.appendChild(inner);
+                container.appendChild(outer);
             });
         }
 

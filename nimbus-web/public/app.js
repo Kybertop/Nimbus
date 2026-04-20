@@ -99,11 +99,29 @@ let activeTab = 'today';
 function startClock() {
     const update = () => {
         const now = new Date();
-        const h = state.cityHour!=null?state.cityHour:now.getHours();
-        $('headerTime').textContent = String(h).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+        let h, m;
+        if (state.tz && state.tz !== 'auto') {
+            try {
+                const parts = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: state.tz,
+                    hour: '2-digit', minute: '2-digit', hour12: false
+                }).formatToParts(now);
+                h = parseInt(parts.find(p => p.type === 'hour').value);
+                m = parseInt(parts.find(p => p.type === 'minute').value);
+                state.cityHour = h;
+            } catch(e) {
+                h = now.getHours();
+                m = now.getMinutes();
+            }
+        } else {
+            h = now.getHours();
+            m = now.getMinutes();
+        }
+        $('headerTime').textContent = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
     };
     update();
-    setInterval(update, 10000);
+    setInterval(update, 1000);
+    window._clockUpdate = update;
 }
 
 function renderStats(c, d) {
@@ -404,6 +422,7 @@ async function loadWeather(lat, lon, tz, cityName) {
     state.lat=lat;state.lon=lon;state.tz=tz;state.city=cityName;
     const ci = $('cityInput');
     if (ci) ci.value = cityName;
+    if (window._clockUpdate) window._clockUpdate();
     $('weatherLoading').classList.remove('hidden');
     $('heroData').classList.add('hidden');
     $('mainPanel').classList.add('hidden');

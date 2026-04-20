@@ -93,7 +93,15 @@ const Sky = (() => {
             canvas.height = container.offsetHeight;
         };
         resize();
-        window.addEventListener('resize', resize);
+        let resizeT;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeT);
+            resizeT = setTimeout(resize, 120);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) pause();
+            else resume();
+        });
 
         stars = Array.from({length:35}, () => ({
             x:Math.random(), y:Math.random()*0.6,
@@ -122,6 +130,12 @@ const Sky = (() => {
         const isSnowHeavy = [75,86].includes(code);
         const isStorm = [95,96,99].includes(code);
         const isFog = [45,48].includes(code);
+
+        if (!showStars && !isRain && !isStorm && !isSnow && !isFog && lightning.opacity <= 0) {
+            rafId = null;
+            return;
+        }
+
         if (showStars) {
             const t = ts/1000;
             stars.forEach(s => {
@@ -364,9 +378,18 @@ const Sky = (() => {
             const c2 = document.createElement('canvas');
             c2.width = cw; c2.height = ch;
             const ctx2 = c2.getContext('2d');
-            ctx2.filter = 'blur(8px)';
-            ctx2.drawImage(c, 0, 0);
-            ctx2.filter = 'none';
+            const bScale = 0.18;
+            const sw = Math.max(1, Math.round(cw * bScale));
+            const sh = Math.max(1, Math.round(ch * bScale));
+            const cSmall = document.createElement('canvas');
+            cSmall.width = sw; cSmall.height = sh;
+            const ctxSmall = cSmall.getContext('2d');
+            ctxSmall.imageSmoothingEnabled = true;
+            ctxSmall.imageSmoothingQuality = 'high';
+            ctxSmall.drawImage(c, 0, 0, sw, sh);
+            ctx2.imageSmoothingEnabled = true;
+            ctx2.imageSmoothingQuality = 'high';
+            ctx2.drawImage(cSmall, 0, 0, cw, ch);
 
             ctx2.globalCompositeOperation = 'destination-out';
             const fade = 100;
@@ -402,6 +425,8 @@ const Sky = (() => {
                 container.appendChild(el);
             });
         }
+
+        if (!rafId && !document.hidden) { lastTs = 0; rafId = requestAnimationFrame(render); }
     }
 
     function pause() { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } }

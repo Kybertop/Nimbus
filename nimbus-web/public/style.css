@@ -19,7 +19,7 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 @keyframes cloudScroll1{from{background-position:0 0}to{background-position:-1000px 0}}
 @keyframes cloudScroll2{from{background-position:0 0}to{background-position:-1600px 0}}
 @keyframes cloudScroll3{from{background-position:0 0}to{background-position:-850px 0}}
-.cloud-layer{pointer-events:none;z-index:1;position:relative;image-rendering:auto;-webkit-image-rendering:auto}
+.cloud-layer{pointer-events:none;z-index:1;position:relative;image-rendering:auto;-webkit-image-rendering:auto;transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .sky-moon{position:absolute;z-index:0;pointer-events:none;opacity:0.88;filter:blur(0.5px)}
 
 #app{position:relative;z-index:1}

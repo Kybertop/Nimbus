@@ -253,11 +253,8 @@ const Sky = (() => {
 
         const hexes = gradStr.match(/#[0-9a-fA-F]{6}/g) || [];
         const topC = hexes[0] || '#0a1028';
-        const lightC = hexes[hexes.length-1] || '#62b8e6';
         document.documentElement.style.backgroundColor = topC;
         document.body.style.background = gradStr;
-        const themeMeta = document.querySelector('meta[name="theme-color"]');
-        if (themeMeta) themeMeta.setAttribute('content', lightC);
 
         const horizEl = document.getElementById('skyHorizon');
         if (horizEl) horizEl.style.background = HORIZONS[ph]||HORIZONS.day;

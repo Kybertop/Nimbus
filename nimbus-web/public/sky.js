@@ -251,8 +251,11 @@ const Sky = (() => {
         const gradEl = document.getElementById('skyGrad');
         if (gradEl) gradEl.style.background = gradStr;
 
-        document.documentElement.style.backgroundColor = '#e6f0ff';
-        document.body.style.background = '#e6f0ff';
+        const hexes = gradStr.match(/#[0-9a-fA-F]{6}/g) || [];
+        const brightC = hexes[hexes.length-1] || '#62b8e6';
+        if (container) container.style.backgroundColor = brightC;
+        document.documentElement.style.backgroundColor = brightC;
+        document.body.style.background = brightC;
 
         const horizEl = document.getElementById('skyHorizon');
         if (horizEl) horizEl.style.background = HORIZONS[ph]||HORIZONS.day;

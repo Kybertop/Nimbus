@@ -4,7 +4,7 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 
 .hidden{display:none!important}
 
-#skyScene{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#152040}
+#skyScene{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#62b8e6}
 .sky-gradient{position:absolute;inset:0;transition:background 3s ease}
 .sky-horizon{position:absolute;bottom:0;left:0;right:0;height:35%;pointer-events:none}
 .sky-sun{position:absolute;z-index:0;pointer-events:none}

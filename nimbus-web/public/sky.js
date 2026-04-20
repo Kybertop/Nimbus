@@ -247,8 +247,17 @@ const Sky = (() => {
         else if (isOvc) gradKey = isNight?'night_overcast':'overcast';
         else gradKey = ph;
 
+        const gradStr = GRADS[gradKey]||GRADS.day;
         const gradEl = document.getElementById('skyGrad');
-        if (gradEl) gradEl.style.background = GRADS[gradKey]||GRADS.day;
+        if (gradEl) gradEl.style.background = gradStr;
+
+        const hexes = gradStr.match(/#[0-9a-fA-F]{6}/g) || [];
+        const topC = hexes[0] || '#0a1028';
+        const bottomC = hexes[hexes.length-1] || '#152040';
+        document.documentElement.style.backgroundColor = bottomC;
+        document.body.style.background = bottomC;
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', topC);
 
         const horizEl = document.getElementById('skyHorizon');
         if (horizEl) horizEl.style.background = HORIZONS[ph]||HORIZONS.day;

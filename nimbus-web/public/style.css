@@ -1,6 +1,6 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min-height:100vh;min-height:100dvh;overflow-x:hidden;overscroll-behavior:none}
+body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min-height:100vh;min-height:100dvh;overflow-x:hidden}
 
 .hidden{display:none!important}
 
@@ -37,7 +37,7 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 
 .search-bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:14px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);cursor:pointer;position:relative}
 .search-icon{font-size:14px}
-.search-input{flex:1;background:none;border:none;color:rgba(255,255,255,0.93);font-size:13px;outline:none;font-family:inherit}
+.search-input{flex:1;background:none;border:none;color:rgba(255,255,255,0.93);font-size:16px;outline:none;font-family:inherit}
 .search-input::placeholder{color:rgba(255,255,255,0.5)}
 
 .city-results{position:absolute;left:0;right:0;z-index:20;background:rgba(14,22,42,0.94);border:1px solid rgba(255,255,255,0.13);border-radius:12px;max-height:220px;overflow-y:auto;margin-top:4px}
@@ -176,7 +176,7 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 .discord-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 0;border-radius:12px;background:#5865f2;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .discord-btn:hover{background:#4752c4}
 
-.settings-input{flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);color:#fff;font-size:13px;outline:none;font-family:inherit}
+.settings-input{flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);color:#fff;font-size:16px;outline:none;font-family:inherit}
 .settings-input::placeholder{color:rgba(255,255,255,0.35)}
 .btn-accent{padding:9px 16px;border-radius:10px;background:rgba(125,211,252,0.15);border:1px solid rgba(125,211,252,0.3);color:#7dd3fc;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
 .btn-accent:hover{background:rgba(125,211,252,0.22)}
@@ -223,7 +223,7 @@ body{font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;color:#fff;min
 .notif-type-btn.active{background:rgba(96,165,250,0.12);border-color:rgba(96,165,250,0.4);color:#93c5fd}
 .notif-type-btn span{line-height:1.2}
 .notif-time-wrap{margin-bottom:18px}
-.notif-time-input{width:100%;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(255,255,255,0.12);font-family:inherit;font-size:14px;box-sizing:border-box}
+.notif-time-input{width:100%;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(255,255,255,0.12);font-family:inherit;font-size:16px;box-sizing:border-box}
 .notif-time-input:focus{outline:none;border-color:rgba(96,165,250,0.5);background:rgba(255,255,255,0.08)}
 .notif-save-btn{width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;border:none;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform 0.15s}
 .notif-save-btn:hover{transform:translateY(-1px)}

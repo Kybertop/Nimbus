@@ -252,9 +252,9 @@ const Sky = (() => {
         if (gradEl) gradEl.style.background = gradStr;
 
         const hexes = gradStr.match(/#[0-9a-fA-F]{6}/g) || [];
-        const bottomC = hexes[hexes.length-1] || '#152040';
-        document.documentElement.style.backgroundColor = bottomC;
-        document.body.style.background = bottomC;
+        const topC = hexes[0] || '#0a1028';
+        document.documentElement.style.backgroundColor = topC;
+        document.body.style.background = gradStr;
 
         const horizEl = document.getElementById('skyHorizon');
         if (horizEl) horizEl.style.background = HORIZONS[ph]||HORIZONS.day;

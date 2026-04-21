@@ -10,22 +10,30 @@ const wm = (c, isNight) => {
     return base;
 };
 
-const NAMEDAYS=["","Drahomíra","Alexandra","Daniela","Drahoslav","Andrea","Antónia","Bohuslava","Severín","Alexej","Dáša","Malvína","Ernest","Rastislav","Radovan","Dobroslav","Kristína","Nataša","Bohdana","Drahomíra","Dalibor","Vincent","Zora","Miloš","Timotej","Gejza","Tamara","Bohuš","Alfonz","Gašpar","Ema","Emil",
-"Tatiana","Erika","Blažej","Verona","Agáta","Dorota","Vanda","Zoja","Zdenko","Gabriela","Dezider","Perla","Valentín","Pravoslav","Ida","Miloslava","Jaromír","Vlasta","Lívia","Eleonóra","Etela","Roman","Matej","Frederik","Viktor","Alexander","Zlatica","Radomír",
-"Albín","Anežka","Bohumil","Kazimír","Fridrich","Radoslav","Tomáš","Alan","Františka","Branislav","Angela","Gregor","Vlastimil","Matilda","Svetlana","Boleslav","Ľubica","Eduard","Jozef","Víťazoslav","Blahoslav","Beňadik","Adrián","Gabriel","Marián","Dušan","Renáta","Soňa","Miroslav","Vieroslava","Benjamín",
-"Hugo","Zita","Richard","Izidor","Miroslava","Irena","Zoltán","Albert","Milena","Igor","Július","Estera","Aleš","Justína","Fedor","Dana","Rudolf","Valér","Jela","Marcel","Jaroslav","Slavomír","Želmíra","Vojtech","Juraj","Jaroslava","Jaroslav","Jarmila","Lea","Anastázia",
+const NAMEDAYS=["","Nový rok","Alexandra","Daniela","Drahoslav","Andrea","Antónia","Bohuslava","Severín","Alexej","Dáša","Malvína","Ernest","Rastislav","Radovan","Dobroslav","Kristína","Nataša","Bohdana","Drahomíra","Dalibor","Vincent","Zora","Miloš","Timotej","Gejza","Tamara","Bohuš","Alfonz","Gašpar","Ema","Emil",
+"Tatiana","Erika","Blažej","Veronika","Agáta","Dorota","Vanda","Zoja","Zdenko","Gabriela","Dezider","Perla","Arpád","Valentín","Pravoslav","Ida","Miloslava","Jaromír","Vlasta","Lívia","Eleonóra","Etela","Roman","Matej","Frederik","Viktor","Alexander","Zlatica",
+"Albín","Anežka","Bohumil","Kazimír","Fridrich","Radoslav","Tomáš","Alan","Františka","Branislav","Angela","Gregor","Vlastimil","Matilda","Svetlana","Boleslav","Ľubica","Eduard","Jozef","Víťazoslav","Blahoslav","Beňadik","Adrián","Gabriel","Marián","Emanuel","Alena","Soňa","Miroslav","Vieroslava","Benjamín",
+"Hugo","Zita","Richard","Izidor","Miroslava","Irena","Zoltán","Albert","Milena","Igor","Július","Estera","Aleš","Justína","Fedor","Dana","Rudolf","Valér","Jela","Marcel","Ervín","Slavomír","Vojtech","Juraj","Marek","Jaroslava","Jaroslav","Jarmila","Lea","Anastázia",
 "Sviatok práce","Žigmund","Galina","Florián","Lesana","Hermína","Monika","Ingrida","Roland","Viktória","Blažena","Pankrác","Servác","Bonifác","Žofia","Svetozár","Gizela","Viola","Gertrúda","Bernard","Zina","Júlia","Želmíra","Ela","Urban","Dušan","Iveta","Viliam","Vilma","Ferdinand","Petronela",
-"Žaneta","Xénia","Karolína","Lenka","Laura","Norbert","Róbert","Medard","Stanislava","Margaréta","Dobroslava","Zlatko","Anton","Vasil","Vít","Blanka","Adolf","Vratislav","Alfréd","Valéria","Alojz","Paulína","Sidónia","Ján","Olívia","Adriána","Ladislav","Beáta","Peter a Pavol","Melánia",
+"Žaneta","Xénia","Karolína","Lenka","Laura","Norbert","Róbert","Medard","Stanislava","Margaréta","Dobroslava","Zlatko","Anton","Vasil","Vít","Blanka","Adolf","Vratislav","Alfréd","Valéria","Alojz","Paulína","Sidónia","Ján","Tadeáš","Adriána","Ladislav","Beáta","Peter a Pavol","Melánia",
 "Diana","Berta","Miloslav","Prokop","Cyril a Metod","Patrícia","Oliver","Ivan","Lujza","Amália","Milota","Nina","Margita","Kamil","Henrich","Drahomír","Bohuslav","Kamila","Dušana","Iľja","Daniel","Magdaléna","Oľga","Vladimír","Jakub","Anna","Božena","Krištof","Marta","Libuša","Ignác",
 "Božidara","Gustáv","Jerguš","Dominik","Hortenzia","Jozefína","Štefánia","Oskár","Ľubomíra","Vavrinec","Zuzana","Darina","Ľubomír","Mojmír","Marcela","Leonard","Milica","Elena","Lýdia","Anabela","Jana","Tichomír","Filip","Bartolomej","Ľudovít","Samuel","Silvia","Augustín","Nikola","Ružena","Nora",
 "Drahoslava","Linda","Belo","Rozália","Regina","Alica","Marianna","Miriama","Martina","Oleg","Bystrík","Mária","Ctibor","Ľudomil","Jolana","Ľudmila","Olympia","Eugénia","Konštantín","Ľuboslav","Matúš","Móric","Zdenka","Ľuboš","Vladislav","Edita","Cyprián","Václav","Michal","Jarolím",
 "Arnold","Levoslav","Stela","František","Viera","Natália","Eliška","Brigita","Dionýz","Slavomíra","Valentína","Maximilián","Koloman","Boris","Terézia","Vladimíra","Hedviga","Lukáš","Kristián","Vendelín","Uršuľa","Sergej","Alojzia","Kvetoslava","Aurel","Demeter","Sabína","Dobromila","Klára","Šimon a Júda","Aurélia",
-"Denis","Hubert","Karol","Imrich","Renáta","René","Bohumír","Teodor","Tibor","Maroš","Svätopluk","Stanislav","Irma","Leopold","Agnesa","Klaudia","Eugen","Félix","Alžbeta","Elvíra","Cecília","Klement","Emília","Katarína","Kornel","Milan","Henrieta","Vratko","Štefan","Ondrej",
+"Denis","Hubert","Karol","Karolína","Imrich","Renáta","René","Bohumír","Teodor","Tibor","Martin","Svätopluk","Stanislav","Irma","Leopold","Agnesa","Klaudia","Eugen","Alžbeta","Félix","Elvíra","Cecília","Klement","Emília","Katarína","Kornel","Milan","Henrieta","Vratko","Ondrej",
 "Edmund","Bibiána","Oldrich","Barbora","Oto","Mikuláš","Ambróz","Marína","Izabela","Radúz","Hilda","Otília","Lucia","Branislava","Ivica","Albína","Kornélia","Sláva","Judita","Dagmara","Bohdan","Adela","Nadežda","Adam a Eva","1. sviatok vianočný","Štefan","Filoména","Ivana","Milada","Dávid","Silvester"];
 
 function getNameday() {
     const d = new Date();
-    const dayOfYear = Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000);
+    const y = d.getFullYear();
+    const startUTC = Date.UTC(y, 0, 1);
+    const todayUTC = Date.UTC(y, d.getMonth(), d.getDate());
+    const dayOfYear = Math.round((todayUTC - startUTC) / 86400000) + 1;
+    const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    if (isLeap) {
+        if (dayOfYear === 60) return 'Radomír';
+        if (dayOfYear > 60) return NAMEDAYS[dayOfYear - 1] || '';
+    }
     return NAMEDAYS[dayOfYear] || '';
 }
 
